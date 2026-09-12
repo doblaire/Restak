@@ -1,0 +1,39 @@
+name: Build Restak for Windows
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Build frontend distribution assets
+        run: npm run build:dist
+
+      - name: Build Tauri executable
+        run: npx @tauri-apps/cli build --debug
+
+      - name: Upload Restak Windows Executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Restak-Windows-x64
+          path: |
+            src-tauri/target/debug/app.exe
+            src-tauri/target/debug/bundle/nsis/*.exe
+            src-tauri/target/debug/bundle/msi/*.msi

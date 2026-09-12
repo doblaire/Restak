@@ -1,0 +1,19 @@
+{
+  "name": "restak",
+  "version": "0.1.0",
+  "description": "Restak – A lightweight front-end game launcher",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build:dist": "cp index.html styles.css renderer.js dist/ && cp -R fonts dist/",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "electron": "^33.0.0"
+  },
+  "dependencies": {
+    "figma-squircle": "^1.1.0"
+  }
+}
