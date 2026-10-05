@@ -99,11 +99,6 @@ ipcMain.handle('launch-game', async (_event, game) => {
     child = spawn('open', ['-a', fullPath]);
   }
 
-  if (child) {
-    child.on('exit', () => {
-      exec('osascript -e \'tell application "Restak" to activate\'');
-    });
-  }
   return true;
 });
 

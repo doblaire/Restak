@@ -19,24 +19,23 @@
         <span class="stak-dot"></span>
         <span class="stak-count">0</span>
       </div>
-      <div class="top-bar-right">
-        <time class="system-time" id="systemTime"></time>
+      <div class="top-bar-right" data-tauri-drag-region="false">
+        <button class="clear-library-btn" id="clearLibraryBtn" data-tauri-drag-region="false" title="Clear all games (Testing)" aria-label="Clear all games">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+          <span class="clear-btn-label">Clear All</span>
+        </button>
+        <time class="system-time" id="systemTime" data-tauri-drag-region="false"></time>
       </div>
     </header>
 
-    <!-- Main Content Area: Empty State or Game Shelf -->
+    <!-- Main Content Area: Game Shelf -->
     <main class="content">
-      <div class="empty-state" id="emptyState">
-        <div class="empty-state-title">it’s empty here</div>
-        <button class="empty-state-add-btn" id="emptyStateAddBtn">
-          <svg class="plusbox-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18.3091 0.00732422C21.4792 0.168172 24 2.78995 24 6V11.25C24 11.6642 23.6642 12 23.25 12H21.75C21.3358 12 21 11.6642 21 11.25V6C21 4.34315 19.6569 3 18 3H6C4.34315 3 3 4.34315 3 6V18C3 19.6569 4.34315 21 6 21H11.25C11.6642 21 12 21.3358 12 21.75V23.25C12 23.6642 11.6642 24 11.25 24H6C2.68629 24 0 21.3137 0 18V6C0 2.68629 2.68629 0 6 0H18L18.3091 0.00732422Z" fill="white"/>
-            <path d="M17.25 9C17.6642 9 18 9.33579 18 9.75V15H23.25C23.6642 15 24 15.3358 24 15.75V17.25C24 17.6642 23.6642 18 23.25 18H18V23.25C18 23.6642 17.6642 24 17.25 24H15.75C15.3358 24 15 23.6642 15 23.25V18H9.75C9.33579 18 9 17.6642 9 17.25V15.75C9 15.3358 9.33579 15 9.75 15H15V9.75C15 9.33579 15 9 15.75 9H17.25Z" fill="white"/>
-          </svg>
-          <span class="empty-state-btn-text">Add Game</span>
-        </button>
-      </div>
-      <div class="game-shelf hidden" id="gameShelf"></div>
+      <div class="game-shelf" id="gameShelf"></div>
     </main>
 
     <!-- Nav Bar Tray (stays inside .app) -->
@@ -188,7 +187,7 @@
         </div>
       </div>
 
-      <!-- Edit Game Details Modal (840x575) -->
+      <!-- Edit Game Details Modal (840x543) -->
       <div class="modal modal-edit-game hidden" id="modalEditGame">
         <div class="modal-curtain"></div>
         <div class="heading-parent">
@@ -202,15 +201,32 @@
             </div>
             <div class="edit-your-per">Edit your per game details. You can always change this later.</div>
           </div>
-          <button class="plusbox modal-close-btn" id="editModalCloseBtn" aria-label="Close">
-            <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 19 19" fill="none" class="plusbox-icon">
-              <path d="M18.318 0.560042C18.9038 1.14583 18.9038 2.09558 18.318 2.68136L11.6207 9.37866L18.318 16.076C18.9038 16.6617 18.9038 17.6115 18.318 18.1973L18.1973 18.318C17.6115 18.9038 16.6617 18.9038 16.076 18.318L9.37866 11.6207L2.68136 18.318C2.09558 18.9038 1.14583 18.9038 0.560043 18.318L0.439322 18.1973C-0.146464 17.6115 -0.146464 16.6617 0.439322 16.076L7.13662 9.37866L0.439323 2.68136C-0.146464 2.09558 -0.146464 1.14583 0.439322 0.560043L0.560043 0.439323C1.14583 -0.146464 2.09558 -0.146464 2.68136 0.439322L9.37866 7.13662L16.076 0.439323C16.6617 -0.146464 17.6115 -0.146464 18.1973 0.439322L18.318 0.560042Z" fill="#707070"/>
-            </svg>
-          </button>
         </div>
         <div class="modal-inner">
           <div class="content-placeholder-parent edit-game-body">
-            <div class="content-placeholder edit-cover-placeholder" id="editModalCover"></div>
+            <div class="edit-cover-col">
+              <div class="content-placeholder edit-cover-placeholder" id="editModalCover"></div>
+              <div class="edit-cover-btn-row">
+                <button type="button" class="edit-cover-action-btn" id="editCoverUploadBtn" title="Upload custom cover image" aria-label="Upload custom cover image">
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1.87988 12.9583C2.22222 12.9583 2.49987 13.2361 2.5 13.5784V14.7903C2.5 16.171 3.61929 17.2903 5 17.2903H15C16.3807 17.2903 17.5 16.171 17.5 14.7903V13.5784C17.5001 13.2361 17.7778 12.9583 18.1201 12.9583H19.3799C19.7222 12.9583 19.9999 13.2361 20 13.5784V14.7903C20 17.5517 17.7614 19.7903 15 19.7903H5C2.23858 19.7903 0 17.5517 0 14.7903V13.5784C0.000134548 13.2361 0.277784 12.9583 0.620117 12.9583H1.87988Z" fill="#707070"/>
+                    <path d="M9.57227 0.156534C9.80711 -0.0522446 10.1616 -0.0521117 10.3965 0.156534L15.7861 4.94853C16.0417 5.1761 16.0643 5.56775 15.8369 5.82353L15 6.76493C14.7726 7.02064 14.3809 7.04388 14.125 6.81669L11.2344 4.24638V13.0931C11.2344 13.4355 10.9567 13.7132 10.6143 13.7132H9.35449C9.01213 13.7131 8.73438 13.4354 8.73438 13.0931V4.24638L5.84473 6.81669C5.58883 7.04415 5.19626 7.02079 4.96875 6.76493L4.13184 5.82353C3.90433 5.56766 3.92778 5.17606 4.18359 4.94853L9.57227 0.156534Z" fill="#707070"/>
+                  </svg>
+                </button>
+                <button type="button" class="edit-cover-action-btn" id="editCoverRefetchBtn" title="Refetch cover image" aria-label="Refetch cover image">
+                  <svg width="29" height="20" viewBox="0 0 29 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22.8549 8.14941C23.0794 7.95008 23.4183 7.95039 23.643 8.14941L28.8002 12.7354C29.0448 12.9531 29.0667 13.3275 28.8491 13.5723L28.0483 14.4736C27.8306 14.7179 27.4561 14.7397 27.2114 14.5225L24.4994 12.0635V14.79C24.4994 17.5515 22.2609 19.79 19.4994 19.79H9.49945C6.73817 19.7899 4.49945 17.5514 4.49945 14.79V13.5781C4.49978 13.2361 4.7775 12.9582 5.11956 12.958H6.37933C6.72154 12.958 6.99912 13.236 6.99945 13.5781V14.79C6.99945 16.1706 8.11888 17.2899 9.49945 17.29H19.4994C20.8802 17.29 21.9994 16.1707 21.9994 14.79V12.0635L19.2875 14.5225C19.0427 14.7398 18.6673 14.7182 18.4496 14.4736L17.6489 13.5723C17.4315 13.3275 17.4541 12.953 17.6987 12.7354L22.8549 8.14941ZM19.4994 0C22.2608 2.41404e-07 24.4993 2.23869 24.4994 5V6.21191C24.4992 6.55408 24.2216 6.83203 23.8793 6.83203H22.6196C22.2774 6.83199 21.9997 6.55405 21.9994 6.21191V5C21.9993 3.6194 20.8801 2.5 19.4994 2.5H9.49945C8.11885 2.50004 6.99958 3.61943 6.99945 5V7.72656L9.71136 5.26758C9.9561 5.05021 10.3316 5.072 10.5493 5.31641L11.35 6.21777C11.5676 6.46258 11.5449 6.83698 11.3002 7.05469L6.14398 11.6406C5.91939 11.84 5.58059 11.8398 5.35589 11.6406L0.198666 7.05469C-0.0457191 6.83691 -0.0677354 6.46246 0.149838 6.21777L0.950619 5.31641C1.16824 5.07216 1.54282 5.05048 1.78753 5.26758L4.49945 7.72656V5C4.49958 2.23871 6.73814 4.15455e-05 9.49945 0H19.4994Z" fill="#707070"/>
+                  </svg>
+                </button>
+                <button type="button" class="edit-cover-action-btn" id="editCoverBackBtn" title="Previous cover image" aria-label="Previous cover image">
+                  <svg width="18" height="14" viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17.38 0C17.7224 0 18.0001 0.277701 18.0001 0.620117V13.3799C18.0001 13.7223 17.7224 14 17.38 14H16.1202C15.7778 14 15.5001 13.7223 15.5001 13.3799V0.620117C15.5001 0.277701 15.7778 0 16.1202 0H17.38Z" fill="#707070"/>
+                    <path d="M4.94833 1.20801C5.1759 0.952448 5.56755 0.929796 5.82333 1.15723L6.76473 1.99414C7.02044 2.22158 7.04368 2.61326 6.81649 2.86914L4.24618 5.75977H13.0929L13.2179 5.77148C13.5006 5.82916 13.713 6.08012 13.713 6.37988V7.63965C13.7127 7.9818 13.4351 8.25977 13.0929 8.25977H4.24618L6.81649 11.1494C7.0439 11.4053 7.02058 11.7979 6.76473 12.0254L5.82333 12.8623C5.56747 13.0894 5.17574 13.0662 4.94833 12.8105L0.156336 7.42188C-0.0523106 7.18718 -0.0519133 6.83258 0.156336 6.59766L4.94833 1.20801Z" fill="#707070"/>
+                  </svg>
+                </button>
+              </div>
+              <input type="file" id="editCoverFileInput" accept="image/png, image/jpeg, image/jpg, image/webp" style="display: none;" />
+            </div>
             <div class="frame-parent">
               <div class="frame-group">
                 <div class="autofilled-game-title-wrapper">
@@ -228,11 +244,14 @@
                   <input type="text" class="edit-game-input" id="editInputYear" placeholder="Year Published" spellcheck="false" autocomplete="off" />
                 </div>
               </div>
-              <div class="autofilled-targeted-launcher-wrapper">
+              <div class="autofilled-targeted-launcher-wrapper" id="editLauncherWrapper">
                 <input type="text" class="edit-game-input" id="editInputLauncher" placeholder="Targeted Launcher (e.g. Steam, Dolphin)" spellcheck="false" autocomplete="off" readonly style="cursor: pointer;" />
               </div>
-              <div class="tags-separated-by-comma-wrapper">
-                <input type="text" class="edit-game-input" id="editInputTags" placeholder="Tags separated by comma" spellcheck="false" autocomplete="off" />
+              <div class="game-file-wrapper" id="editGameFileWrapper">
+                <input type="text" class="edit-game-input" id="editInputGameFile" placeholder="Game File" spellcheck="false" autocomplete="off" />
+              </div>
+              <div class="game-file-wrapper">
+                <input type="text" class="edit-game-input" id="editInputDescription" placeholder="Description" spellcheck="false" autocomplete="off" />
               </div>
               <div class="stak-location-parent">
                 <div class="autofilled-game-title">Stak Location</div>
@@ -256,17 +275,129 @@
           </div>
         </div>
       </div>
+
+      <!-- Manually Add Title Modal (840x607) -->
+      <div class="modal modal-manual-add hidden" id="modalManualAdd">
+        <div class="modal-curtain"></div>
+        <div class="heading-parent">
+          <div class="heading">
+            <div class="header">
+              <div class="file">
+                <svg width="20" height="24" viewBox="0 0 20 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M12.3167 1.23143e-07C12.8807 1.23143e-07 13.1631 -0.000496164 13.4285 0.0615236C13.6637 0.116589 13.8892 0.207869 14.0956 0.331055C14.3284 0.470197 14.5288 0.665559 14.9279 1.05469L18.9183 4.94531C19.3174 5.33445 19.5177 5.52977 19.6605 5.75684C19.7868 5.95799 19.8804 6.17786 19.9369 6.40723C20.0005 6.66599 20 6.94132 20 7.49121V20.3994C20 21.659 20.0003 22.2898 19.7491 22.771L19.659 22.9263C19.4372 23.2787 19.1194 23.5666 18.7395 23.7554L18.5472 23.8359C18.0751 24.0003 17.4382 24 16.3071 24H3.69291L2.83654 23.9956C2.21119 23.986 1.79008 23.9534 1.45282 23.8359L1.26052 23.7554C0.826297 23.5397 0.472148 23.1944 0.250901 22.771C-0.00029394 22.2898 1.60251e-09 21.659 1.60251e-09 20.3994V3.60059C1.58336e-09 2.34102 -0.000293791 1.71023 0.250901 1.229C0.472148 0.805639 0.826297 0.460344 1.26052 0.244629C1.63065 0.0609617 2.08679 0.0158811 2.83654 0.00439465L3.69291 1.23143e-07H12.3167ZM3.07843 3.00146C3.0771 3.17289 3.07692 3.36833 3.07692 3.60059V20.3994C3.07692 20.631 3.07711 20.826 3.07843 20.9971C3.25425 20.9984 3.45469 21 3.69291 21H16.3071C16.5446 21 16.7446 20.9984 16.9201 20.9971C16.9214 20.826 16.9231 20.631 16.9231 20.3994V7.5H13.5382C13.1079 7.5 12.8928 7.49949 12.7284 7.41797C12.5836 7.34606 12.4656 7.23097 12.3918 7.08984C12.3082 6.9295 12.3077 6.71979 12.3077 6.30029V3H3.69291C3.4547 3 3.25425 3.00017 3.07843 3.00146Z" fill="#707070"/>
+                </svg>
+              </div>
+              <div class="manually-add-title">Manually Add Title</div>
+            </div>
+            <div class="edit-your-per">Edit your per game details. You can always change this later.</div>
+          </div>
+        </div>
+        <div class="modal-inner">
+          <div class="content-placeholder-parent edit-game-body">
+            <div class="edit-cover-col">
+              <div class="content-placeholder edit-cover-placeholder" id="manualModalCover"></div>
+              <div class="edit-cover-btn-row">
+                <button type="button" class="edit-cover-action-btn" id="manualCoverUploadBtn" title="Upload custom cover image" aria-label="Upload custom cover image">
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1.87988 12.9583C2.22222 12.9583 2.49987 13.2361 2.5 13.5784V14.7903C2.5 16.171 3.61929 17.2903 5 17.2903H15C16.3807 17.2903 17.5 16.171 17.5 14.7903V13.5784C17.5001 13.2361 17.7778 12.9583 18.1201 12.9583H19.3799C19.7222 12.9583 19.9999 13.2361 20 13.5784V14.7903C20 17.5517 17.7614 19.7903 15 19.7903H5C2.23858 19.7903 0 17.5517 0 14.7903V13.5784C0.000134548 13.2361 0.277784 12.9583 0.620117 12.9583H1.87988Z" fill="#707070"/>
+                    <path d="M9.57227 0.156534C9.80711 -0.0522446 10.1616 -0.0521117 10.3965 0.156534L15.7861 4.94853C16.0417 5.1761 16.0643 5.56775 15.8369 5.82353L15 6.76493C14.7726 7.02064 14.3809 7.04388 14.125 6.81669L11.2344 4.24638V13.0931C11.2344 13.4355 10.9567 13.7132 10.6143 13.7132H9.35449C9.01213 13.7131 8.73438 13.4354 8.73438 13.0931V4.24638L5.84473 6.81669C5.58883 7.04415 5.19626 7.02079 4.96875 6.76493L4.13184 5.82353C3.90433 5.56766 3.92778 5.17606 4.18359 4.94853L9.57227 0.156534Z" fill="#707070"/>
+                  </svg>
+                </button>
+                <button type="button" class="edit-cover-action-btn" id="manualCoverRefetchBtn" title="Refetch cover image" aria-label="Refetch cover image">
+                  <svg width="29" height="20" viewBox="0 0 29 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22.8549 8.14941C23.0794 7.95008 23.4183 7.95039 23.643 8.14941L28.8002 12.7354C29.0448 12.9531 29.0667 13.3275 28.8491 13.5723L28.0483 14.4736C27.8306 14.7179 27.4561 14.7397 27.2114 14.5225L24.4994 12.0635V14.79C24.4994 17.5515 22.2609 19.79 19.4994 19.79H9.49945C6.73817 19.7899 4.49945 17.5514 4.49945 14.79V13.5781C4.49978 13.2361 4.7775 12.9582 5.11956 12.958H6.37933C6.72154 12.958 6.99912 13.236 6.99945 13.5781V14.79C6.99945 16.1706 8.11888 17.2899 9.49945 17.29H19.4994C20.8802 17.29 21.9994 16.1707 21.9994 14.79V12.0635L19.2875 14.5225C19.0427 14.7398 18.6673 14.7182 18.4496 14.4736L17.6489 13.5723C17.4315 13.3275 17.4541 12.953 17.6987 12.7354L22.8549 8.14941ZM19.4994 0C22.2608 2.41404e-07 24.4993 2.23869 24.4994 5V6.21191C24.4992 6.55408 24.2216 6.83203 23.8793 6.83203H22.6196C22.2774 6.83199 21.9997 6.55405 21.9994 6.21191V5C21.9993 3.6194 20.8801 2.5 19.4994 2.5H9.49945C8.11885 2.50004 6.99958 3.6194 6.99945 5V7.72656L9.71136 5.26758C9.9561 5.05021 10.3316 5.072 10.5493 5.31641L11.35 6.21777C11.5676 6.46258 11.5449 6.83698 11.3002 7.05469L6.14398 11.6406C5.91939 11.84 5.58059 11.8398 5.35589 11.6406L0.198666 7.05469C-0.0457191 6.83691 -0.0677354 6.46246 0.149838 6.21777L0.950619 5.31641C1.16824 5.07216 1.54282 5.05048 1.78753 5.26758L4.49945 7.72656V5C4.49958 2.23871 6.73814 4.15455e-05 9.49945 0H19.4994Z" fill="#707070"/>
+                  </svg>
+                </button>
+                <button type="button" class="edit-cover-action-btn" id="manualCoverBackBtn" title="Previous cover image" aria-label="Previous cover image">
+                  <svg width="18" height="14" viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17.38 0C17.7224 0 18.0001 0.277701 18.0001 0.620117V13.3799C18.0001 13.7223 17.7224 14 17.38 14H16.1202C15.7778 14 15.5001 13.7223 15.5001 13.3799V0.620117C15.5001 0.277701 15.7778 0 16.1202 0H17.38Z" fill="#707070"/>
+                    <path d="M4.94833 1.20801C5.1759 0.952448 5.56755 0.929796 5.82333 1.15723L6.76473 1.99414C7.02044 2.22158 7.04368 2.61326 6.81649 2.86914L4.24618 5.75977H13.0929L13.2179 5.77148C13.5006 5.82916 13.713 6.08012 13.713 6.37988V7.63965C13.7127 7.9818 13.4351 8.25977 13.0929 8.25977H4.24618L6.81649 11.1494C7.0439 11.4053 7.02058 11.7979 6.76473 12.0254L5.82333 12.8623C5.56747 13.0894 5.17574 13.0662 4.94833 12.8105L0.156336 7.42188C-0.0523106 7.18718 -0.0519133 6.83258 0.156336 6.59766L4.94833 1.20801Z" fill="#707070"/>
+                  </svg>
+                </button>
+              </div>
+              <input type="file" id="manualCoverFileInput" accept="image/png, image/jpeg, image/jpg, image/webp" style="display: none;" />
+            </div>
+            <div class="frame-parent">
+              <div class="frame-group">
+                <div class="autofilled-game-title-wrapper">
+                  <input type="text" class="edit-game-input" id="manualInputTitle" placeholder="Autofilled Game Title" spellcheck="false" autocomplete="off" />
+                </div>
+                <div class="autofilled-game-title-wrapper">
+                  <input type="text" class="edit-game-input" id="manualInputGenre" placeholder="Genre" spellcheck="false" autocomplete="off" />
+                </div>
+              </div>
+              <div class="frame-group">
+                <div class="autofilled-game-title-wrapper">
+                  <input type="text" class="edit-game-input" id="manualInputPublisher" placeholder="Autofilled Publisher" spellcheck="false" autocomplete="off" />
+                </div>
+                <div class="autofilled-game-title-wrapper">
+                  <input type="text" class="edit-game-input" id="manualInputYear" placeholder="Autofilled Year Published" spellcheck="false" autocomplete="off" />
+                </div>
+              </div>
+              <div class="autofilled-targeted-launcher-wrapper" id="manualLauncherWrapper">
+                <input type="text" class="edit-game-input" id="manualInputLauncher" placeholder="Autofilled targeted launcher (ie: Steam Dolphin)" spellcheck="false" autocomplete="off" readonly style="cursor: pointer;" />
+              </div>
+              <div class="game-file-wrapper" id="manualGameFileWrapper">
+                <input type="text" class="edit-game-input" id="manualInputGameFile" placeholder="Game File" spellcheck="false" autocomplete="off" />
+              </div>
+              <div class="game-file-wrapper">
+                <input type="text" class="edit-game-input" id="manualInputDescription" placeholder="Description" spellcheck="false" autocomplete="off" />
+              </div>
+              <div class="stak-location-parent">
+                <div class="autofilled-game-title">Stak Location</div>
+                <div class="chevron">
+                  <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
+                    <path d="M1 1L8 8L15 1" stroke="#9E9E9E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="button-types-parent">
+          <button class="button-types active" id="manualModalBackBtn">
+            <div class="game-title">Back</div>
+          </button>
+          <div class="button-types-wrapper">
+            <button class="button-types active" id="manualModalSaveBtn">
+              <div class="game-title">Done</div>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
-
-  <!-- Seamless Fade-to-Black Backdrop for Game Launching with Priority Status -->
-  <div class="black-curtain hidden" id="blackCurtain">
-    <div class="launch-status-container" id="launchStatusContainer">
-      <div class="launch-status-spinner"></div>
-      <div class="launch-status-title" id="launchStatusTitle">Starting Game...</div>
-      <div class="launch-status-subtitle" id="launchStatusSubtitle">Please wait...</div>
+    <!-- Game Floating Context Menu -->
+    <div class="context-menu-backdrop" id="gameContextMenuBackdrop"></div>
+    <div class="game-context-menu" id="modalGameContext">
+      <div class="selections-parent">
+        <div class="selections" data-action="edit">
+          <div class="union-icon" style="width: 21px; height: 21px;">
+            <svg width="21" height="21" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9.46267 0.839844C9.81108 0.839845 10.0935 1.12191 10.0935 1.46985V2.72986C10.0934 3.07772 9.81102 3.35986 9.46267 3.35986H5.04676C3.65313 3.35986 2.52338 4.48812 2.52338 5.87988V15.96C2.52347 17.3517 3.65319 18.48 5.04676 18.48H15.1403C16.5338 18.48 17.6636 17.3517 17.6637 15.96V11.5499C17.6637 11.202 17.9461 10.9199 18.2945 10.9199H19.5562C19.9046 10.9199 20.187 11.202 20.187 11.5499V15.96C20.1869 18.7434 17.9275 21 15.1403 21H5.04676C2.25957 21 9.02939e-05 18.7434 0 15.96V5.87988L0.00574989 5.61984C0.141154 2.95706 2.34677 0.839845 5.04676 0.839844H9.46267Z" fill="#9E9E9E"/>
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M15.1551 0.492029C15.812 -0.163986 16.8769 -0.164033 17.5339 0.492029L20.5074 3.46158C21.1642 4.11766 21.1642 5.18118 20.5074 5.83723L11.3881 14.9452C11.1307 15.2021 10.7962 15.3688 10.436 15.4202L6.96722 15.9148C5.85727 16.0731 4.90591 15.1234 5.06401 14.015L5.55932 10.55C5.61078 10.1902 5.77771 9.85621 6.03492 9.59921L15.1551 0.492029ZM8.01781 11.1832L7.72046 13.2619L9.80192 12.965L18.1286 4.64941L16.3445 2.86767L8.01781 11.1832Z" fill="#9E9E9E"/>
+            </svg>
+          </div>
+          <div class="edit-details">Edit Details</div>
+        </div>
+        <div class="selections" data-action="location">
+          <div class="union-icon" style="width: 20px; height: 17px;">
+            <svg width="20" height="17" viewBox="0 0 20 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M9.13452 0.0159868C9.65109 0.0810018 10.126 0.337316 10.4663 0.734158L10.7837 1.15473C11.1807 1.61768 11.7609 1.88888 12.3767 1.88889H18.75C19.4404 1.88889 20 2.45268 20 3.14815V12.9701C20 14.3806 20.0003 15.0864 19.7278 15.6251L19.6313 15.7985C19.3912 16.193 19.0468 16.5145 18.6353 16.7258L18.4253 16.8155C17.9139 16.9994 17.2248 17 15.9998 17H4.00024L3.07251 16.9963C2.39555 16.9856 1.93992 16.9468 1.57471 16.8155L1.36475 16.7258C0.953202 16.5145 0.608834 16.193 0.368652 15.7985L0.272217 15.6251C-0.000266768 15.0864 1.32443e-07 14.3806 1.32443e-07 12.9701V3.14815C1.32443e-07 2.56303 -0.000429242 2.26991 0.0476076 2.02662C0.24499 1.02792 1.02036 0.246805 2.01172 0.0479602C2.25322 -0.000432421 2.54418 1.33362e-07 3.125 1.33428e-07H8.87329L9.13452 0.0159868ZM2.52686 2.52344C2.5189 2.52371 2.51156 2.52316 2.50488 2.52344C2.5046 2.53017 2.50516 2.53756 2.50488 2.54557C2.50068 2.66919 2.5 2.83851 2.5 3.14815V12.9701C2.5 13.7169 2.50182 14.1264 2.52563 14.42C2.52651 14.4308 2.52841 14.441 2.5293 14.4507C2.53937 14.4517 2.54981 14.4547 2.56104 14.4557C2.8525 14.4796 3.25893 14.4815 4.00024 14.4815H15.9998C16.7411 14.4815 17.1475 14.4796 17.439 14.4557C17.4497 14.4548 17.4598 14.4516 17.4695 14.4507C17.4704 14.441 17.4735 14.4308 17.4744 14.42C17.4982 14.1264 17.5 13.7169 17.5 12.9701V4.40741H12.3767C11.1828 4.4074 10.0512 3.94045 9.20482 3.12904C8.91828 2.85433 8.77501 2.71697 8.67594 2.65826C8.56787 2.59421 8.51572 2.57325 8.39338 2.54469C8.28124 2.51852 8.1403 2.51852 7.85843 2.51852H3.125C2.81764 2.51852 2.64956 2.51921 2.52686 2.52344Z" fill="#9E9E9E"/>
+            </svg>
+          </div>
+          <div class="edit-details">Show File Location</div>
+        </div>
+      </div>
+      <div class="selections" data-action="remove">
+        <div class="union-icon" style="width: 20px; height: 20px;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18.9393 1.18138C19.5251 1.76717 19.5251 2.71692 18.9393 3.3027L12.242 10L18.9393 16.6973C19.5251 17.2831 19.5251 18.2328 18.9393 18.8186L18.8186 18.9393C18.2328 19.5251 17.2831 19.5251 16.6973 18.9393L10 12.242L3.3027 18.9393C2.71692 19.5251 1.76717 19.5251 1.18138 18.9393L1.06066 18.8186C0.474874 18.2328 0.474874 17.2831 1.06066 16.6973L7.75796 10L1.06066 3.3027C0.474874 2.71692 0.474874 1.76717 1.06066 1.18138L1.18138 1.06066C1.76717 0.474874 2.71691 0.474874 3.3027 1.06066L10 7.75796L16.6973 1.06066C17.2831 0.474874 18.2328 0.474874 18.8186 1.06066L18.9393 1.18138Z" fill="#9E9E9E"/>
+          </svg>
+        </div>
+        <div class="edit-details">Remove from Restak</div>
+      </div>
     </div>
-  </div>
 
   <script src="renderer.js"></script>
 </body>

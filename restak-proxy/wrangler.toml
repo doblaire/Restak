@@ -1,0 +1,12 @@
+name = "restak-proxy"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+account_id = "9fd3a18e953ad70f76b3d2033703ff8d"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "RESTAK_COVERS_KV"
+id = "f78f7b0ad9a44ba69198137245be82d5"
+
+[observability]
+enabled = true

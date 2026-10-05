@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Launching...</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #000000;
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            transition: opacity 0.5s ease-out;
+            opacity: 1;
+        }
+
+        #status {
+            font-size: 24px;
+            font-weight: 600;
+            opacity: 0.8;
+            animation: pulse 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        .fade-out {
+            opacity: 0 !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="status">Launching game...</div>
+
+    <script>
+        const { invoke } = window.__TAURI__.core;
+        const { listen } = window.__TAURI__.event;
+
+        // Listen for status updates from Rust
+        listen('overlay-status', (event) => {
+            document.getElementById('status').innerText = event.payload;
+        });
+
+        // Listen for fade out event
+        listen('overlay-fade-out', (event) => {
+            document.body.classList.add('fade-out');
+            
+            // Wait for transition to finish before telling Rust to close
+            setTimeout(() => {
+                invoke('close_overlay');
+            }, 550); // Slightly longer than the 0.5s CSS transition
+        });
+
+        // Global Escape key listener to abort launch
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.getElementById('status').innerText = 'Aborting...';
+                invoke('abort_launch');
+            }
+        });
+    </script>
+</body>
+</html>

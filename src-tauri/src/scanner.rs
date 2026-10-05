@@ -22,7 +22,7 @@ pub struct Game {
     #[serde(default)]
     pub year: Option<String>,
     #[serde(default)]
-    pub tags: Option<String>,
+    pub description: Option<String>,
     #[serde(rename = "customLauncherPath", default)]
     pub custom_launcher_path: Option<String>,
 }
@@ -65,17 +65,59 @@ const EMULATOR_NAMES: &[&str] = &[
     "GCAdapterDriver",
 ];
 
-fn is_app_installed(app_name: &str) -> bool {
-    let app_file = format!("{}.app", app_name);
-    if Path::new("/Applications").join(&app_file).exists() {
-        return true;
-    }
-    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
-        if home.join("Applications").join(&app_file).exists() {
+pub fn user_home_dir() -> Option<PathBuf> {
+    std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .or_else(|| std::env::var_os("APPDATA"))
+        .map(PathBuf::from)
+}
+
+pub fn is_app_or_exe_installed(app_name: &str) -> bool {
+    #[cfg(unix)]
+    {
+        let app_file = format!("{}.app", app_name);
+        if Path::new("/Applications").join(&app_file).exists() {
             return true;
         }
+        if let Some(home) = user_home_dir() {
+            if home.join("Applications").join(&app_file).exists() {
+                return true;
+            }
+        }
+        false
     }
-    false
+
+    #[cfg(windows)]
+    {
+        let exe_file = format!("{}.exe", app_name.to_lowercase());
+        let candidate_dirs = [
+            std::env::var("ProgramFiles").ok().map(PathBuf::from),
+            std::env::var("ProgramFiles(x86)").ok().map(PathBuf::from),
+            std::env::var("LOCALAPPDATA").ok().map(|p| PathBuf::from(p).join("Programs")),
+            std::env::var("APPDATA").ok().map(PathBuf::from),
+            Some(PathBuf::from("C:\\Program Files")),
+            Some(PathBuf::from("C:\\Program Files (x86)")),
+            Some(PathBuf::from("C:\\Games")),
+            Some(PathBuf::from("D:\\Games")),
+        ];
+
+        for dir_opt in candidate_dirs.into_iter().flatten() {
+            if dir_opt.exists() {
+                if let Ok(entries) = fs::read_dir(&dir_opt) {
+                    for entry in entries.flatten() {
+                        let p = entry.path();
+                        if p.is_file() && p.file_name().and_then(|n| n.to_str()).map(|n| n.to_lowercase()) == Some(exe_file.clone()) {
+                            return true;
+                        }
+                        if p.is_dir() && p.join(&exe_file).exists() {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
 }
 
 fn normalize_title(name: &str) -> String {
@@ -115,6 +157,9 @@ pub fn lookup_game_metadata(title: &str) -> (Option<&'static str>, Option<&'stat
     }
     if norm.contains("bloons td 6") || norm == "btd6" {
         return (Some("Ninja Kiwi"), Some("2018"), Some("Tower Defense"));
+    }
+    if norm.contains("bloons td battles") || norm == "btdb" {
+        return (Some("Ninja Kiwi"), Some("2016"), Some("Tower Defense"));
     }
     if norm.contains("mario kart double dash") {
         return (Some("Nintendo"), Some("2003"), Some("Racing"));
@@ -249,120 +294,212 @@ pub fn lookup_game_metadata(title: &str) -> (Option<&'static str>, Option<&'stat
     (None, None, None)
 }
 
-fn is_game_app(app_name: &str, full_path: &Path) -> bool {
-    if EMULATOR_NAMES.contains(&app_name) {
-        return false;
-    }
-    if KNOWN_GAME_APPS.contains(&app_name) {
-        return true;
-    }
-    let plist_path = full_path.join("Contents/Info.plist");
-    if let Ok(bytes) = fs::read(plist_path) {
-        let needle = b"app-category.game";
-        if bytes.windows(needle.len()).any(|window| window == needle) {
-            return true;
+pub fn get_steam_library_folders() -> Vec<PathBuf> {
+    let mut folders = Vec::new();
+    let mut root_steam_dirs = Vec::new();
+
+    #[cfg(unix)]
+    {
+        if let Some(home) = user_home_dir() {
+            root_steam_dirs.push(home.join("Library/Application Support/Steam"));
+            root_steam_dirs.push(home.join(".steam/steam"));
+            root_steam_dirs.push(home.join(".local/share/Steam"));
         }
     }
-    false
-}
 
-pub fn scan_applications() -> Vec<Game> {
-    let mut results = Vec::new();
-    let apps_dir = Path::new("/Applications");
-    if let Ok(entries) = fs::read_dir(apps_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-                if file_name.ends_with(".app") {
-                    let app_name = &file_name[..file_name.len() - 4];
-                    if is_game_app(app_name, &path) {
-                        let full_str = path.to_string_lossy().to_string();
-                        let (pub_opt, yr_opt, gen_opt) = lookup_game_metadata(app_name);
-                        results.push(Game {
-                            name: app_name.to_string(),
-                            path: full_str.clone(),
-                            full_path: Some(full_str),
-                            launcher: "macOS".to_string(),
-                            cover_art: None,
-                            genre: gen_opt.map(|s| s.to_string()),
-                            publisher: pub_opt.map(|s| s.to_string()),
-                            year: yr_opt.map(|s| s.to_string()),
-                            tags: None,
-                            custom_launcher_path: None,
-                        });
+    #[cfg(windows)]
+    {
+        if let Ok(pf86) = std::env::var("ProgramFiles(x86)") {
+            root_steam_dirs.push(PathBuf::from(pf86).join("Steam"));
+        }
+        if let Ok(pf) = std::env::var("ProgramFiles") {
+            root_steam_dirs.push(PathBuf::from(pf).join("Steam"));
+        }
+        root_steam_dirs.push(PathBuf::from("C:\\Program Files (x86)\\Steam"));
+        root_steam_dirs.push(PathBuf::from("C:\\Program Files\\Steam"));
+        root_steam_dirs.push(PathBuf::from("C:\\Steam"));
+        root_steam_dirs.push(PathBuf::from("D:\\Steam"));
+        root_steam_dirs.push(PathBuf::from("E:\\Steam"));
+    }
+
+    for root in root_steam_dirs {
+        let steamapps = root.join("steamapps");
+        if steamapps.exists() && !folders.contains(&steamapps) {
+            folders.push(steamapps.clone());
+        }
+
+        // Parse libraryfolders.vdf for secondary libraries across drives
+        let lib_vdf = root.join("steamapps/libraryfolders.vdf");
+        if lib_vdf.exists() {
+            if let Ok(content) = fs::read_to_string(&lib_vdf) {
+                for line in content.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with("\"path\"") {
+                        let parts: Vec<&str> = trimmed.split('"').collect();
+                        if parts.len() >= 4 {
+                            let custom_root = PathBuf::from(parts[3].replace("\\\\", "\\"));
+                            let custom_apps = custom_root.join("steamapps");
+                            if custom_apps.exists() && !folders.contains(&custom_apps) {
+                                folders.push(custom_apps);
+                            }
+                        }
                     }
                 }
             }
         }
     }
+
+    folders
+}
+
+pub fn scan_applications() -> Vec<Game> {
+    let mut results = Vec::new();
+
+    #[cfg(unix)]
+    {
+        let apps_dir = Path::new("/Applications");
+        if let Ok(entries) = fs::read_dir(apps_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                    if file_name.ends_with(".app") {
+                        let app_name = &file_name[..file_name.len() - 4];
+                        let is_game = KNOWN_GAME_APPS.contains(&app_name) || {
+                            let plist_path = path.join("Contents/Info.plist");
+                            if let Ok(bytes) = fs::read(plist_path) {
+                                let needle = b"app-category.game";
+                                bytes.windows(needle.len()).any(|w| w == needle)
+                            } else {
+                                false
+                            }
+                        };
+
+                        if is_game && !EMULATOR_NAMES.contains(&app_name) {
+                            let full_str = path.to_string_lossy().to_string();
+                            let (pub_opt, yr_opt, gen_opt) = lookup_game_metadata(app_name);
+                            results.push(Game {
+                                name: app_name.to_string(),
+                                path: full_str.clone(),
+                                full_path: Some(full_str),
+                                launcher: "macOS".to_string(),
+                                cover_art: None,
+                                genre: gen_opt.map(|s| s.to_string()),
+                                publisher: pub_opt.map(|s| s.to_string()),
+                                year: yr_opt.map(|s| s.to_string()),
+                                description: None,
+                                custom_launcher_path: None,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        let candidate_dirs = [
+            std::env::var("ProgramFiles").ok().map(PathBuf::from),
+            std::env::var("ProgramFiles(x86)").ok().map(PathBuf::from),
+            std::env::var("LOCALAPPDATA").ok().map(|p| PathBuf::from(p).join("Programs")),
+            Some(PathBuf::from("C:\\XboxGames")),
+            Some(PathBuf::from("C:\\Games")),
+            Some(PathBuf::from("D:\\Games")),
+            Some(PathBuf::from("E:\\Games")),
+        ];
+
+        for base_dir in candidate_dirs.into_iter().flatten() {
+            if base_dir.exists() {
+                if let Ok(entries) = fs::read_dir(&base_dir) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if path.is_dir() {
+                            let folder_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                            if KNOWN_GAME_APPS.iter().any(|&k| folder_name.eq_ignore_ascii_case(k)) {
+                                let full_str = path.to_string_lossy().to_string();
+                                let (pub_opt, yr_opt, gen_opt) = lookup_game_metadata(folder_name);
+                                results.push(Game {
+                                    name: folder_name.to_string(),
+                                    path: full_str.clone(),
+                                    full_path: Some(full_str),
+                                    launcher: "Windows".to_string(),
+                                    cover_art: None,
+                                    genre: gen_opt.map(|s| s.to_string()),
+                                    publisher: pub_opt.map(|s| s.to_string()),
+                                    year: yr_opt.map(|s| s.to_string()),
+                                    description: None,
+                                    custom_launcher_path: None,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     results
 }
 
 pub fn scan_steam() -> Vec<Game> {
     let mut results = Vec::new();
-    let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
-        return results;
-    };
-    let steam_apps_dir = home.join("Library/Application Support/Steam/steamapps");
-    if let Ok(entries) = fs::read_dir(&steam_apps_dir) {
-        for entry in entries.flatten() {
-            let file_name = entry.file_name().to_string_lossy().to_string();
-            if file_name.starts_with("appmanifest_") && file_name.ends_with(".acf") {
-                if let Ok(content) = fs::read_to_string(entry.path()) {
-                    let mut name = None;
-                    let mut app_id = None;
-                    let mut install_dir = None;
+    let library_folders = get_steam_library_folders();
 
-                    for line in content.lines() {
-                        let trimmed = line.trim();
-                        if trimmed.starts_with("\"name\"") {
-                            let parts: Vec<&str> = trimmed.split('"').collect();
-                            if parts.len() >= 4 {
-                                name = Some(parts[3].to_string());
-                            }
-                        } else if trimmed.starts_with("\"appid\"") {
-                            let parts: Vec<&str> = trimmed.split('"').collect();
-                            if parts.len() >= 4 {
-                                app_id = Some(parts[3].to_string());
-                            }
-                        } else if trimmed.starts_with("\"installdir\"") {
-                            let parts: Vec<&str> = trimmed.split('"').collect();
-                            if parts.len() >= 4 {
-                                install_dir = Some(parts[3].to_string());
-                            }
-                        }
-                    }
+    for steam_apps_dir in library_folders {
+        if let Ok(entries) = fs::read_dir(&steam_apps_dir) {
+            for entry in entries.flatten() {
+                let file_name = entry.file_name().to_string_lossy().to_string();
+                if file_name.starts_with("appmanifest_") && file_name.ends_with(".acf") {
+                    if let Ok(content) = fs::read_to_string(entry.path()) {
+                        let mut name = None;
+                        let mut app_id = None;
+                        let mut install_dir = None;
 
-                    if let Some(game_name) = name {
-                        let mut game_path = steam_apps_dir.to_string_lossy().to_string();
-                        if let Some(dir) = install_dir {
-                            let common = steam_apps_dir.join("common").join(dir);
-                            if common.exists() {
-                                game_path = common.to_string_lossy().to_string();
+                        for line in content.lines() {
+                            let trimmed = line.trim();
+                            if trimmed.starts_with("\"name\"") {
+                                let parts: Vec<&str> = trimmed.split('"').collect();
+                                if parts.len() >= 4 {
+                                    name = Some(parts[3].to_string());
+                                }
+                            } else if trimmed.starts_with("\"appid\"") {
+                                let parts: Vec<&str> = trimmed.split('"').collect();
+                                if parts.len() >= 4 {
+                                    app_id = Some(parts[3].to_string());
+                                }
+                            } else if trimmed.starts_with("\"installdir\"") {
+                                let parts: Vec<&str> = trimmed.split('"').collect();
+                                if parts.len() >= 4 {
+                                    install_dir = Some(parts[3].to_string());
+                                }
                             }
                         }
 
-                        let full_launch = app_id.map(|id| format!("steam://run/{}", id));
-                        let (pub_opt, yr_opt, gen_opt) = lookup_game_metadata(&game_name);
+                        if let Some(game_name) = name {
+                            let mut game_path = steam_apps_dir.to_string_lossy().to_string();
+                            if let Some(dir) = install_dir {
+                                let common = steam_apps_dir.join("common").join(dir);
+                                if common.exists() {
+                                    game_path = common.to_string_lossy().to_string();
+                                }
+                            }
 
-                        let launcher_name = if is_app_installed("Steam") {
-                            "Steam".to_string()
-                        } else {
-                            "No Launcher Found".to_string()
-                        };
+                            let full_launch = app_id.map(|id| format!("steam://run/{}", id));
+                            let (pub_opt, yr_opt, gen_opt) = lookup_game_metadata(&game_name);
 
-                        results.push(Game {
-                            name: game_name,
-                            path: game_path,
-                            full_path: full_launch,
-                            launcher: launcher_name,
-                            cover_art: None,
-                            genre: gen_opt.map(|s| s.to_string()),
-                            publisher: pub_opt.map(|s| s.to_string()),
-                            year: yr_opt.map(|s| s.to_string()),
-                            tags: None,
-                            custom_launcher_path: None,
-                        });
+                            results.push(Game {
+                                name: game_name,
+                                path: game_path,
+                                full_path: full_launch,
+                                launcher: "Steam".to_string(),
+                                cover_art: None,
+                                genre: gen_opt.map(|s| s.to_string()),
+                                publisher: pub_opt.map(|s| s.to_string()),
+                                year: yr_opt.map(|s| s.to_string()),
+                                description: None,
+                                custom_launcher_path: None,
+                            });
+                        }
                     }
                 }
             }
@@ -410,75 +547,69 @@ pub fn resolve_emulator_for_ext(ext: &str) -> String {
     let ext_lower = ext.to_lowercase();
     match ext_lower.as_str() {
         "iso" | "gcm" | "rvz" | "wbfs" | "ciso" => {
-            if is_app_installed("Dolphin") {
+            if is_app_or_exe_installed("Dolphin") {
                 "Dolphin Emulator".to_string()
-            } else if is_app_installed("RetroArch") {
+            } else if is_app_or_exe_installed("RetroArch") {
                 "RetroArch".to_string()
             } else {
-                "No Launcher Found".to_string()
+                "Dolphin Emulator".to_string()
             }
         }
         "gba" | "gbc" | "gb" => {
-            if is_app_installed("mGBA") {
+            if is_app_or_exe_installed("mGBA") {
                 "mGBA".to_string()
-            } else if is_app_installed("RetroArch") {
+            } else if is_app_or_exe_installed("RetroArch") {
                 "RetroArch".to_string()
-            } else if is_app_installed("OpenEmu") {
+            } else if is_app_or_exe_installed("OpenEmu") {
                 "OpenEmu".to_string()
             } else {
-                "No Launcher Found".to_string()
+                "mGBA".to_string()
             }
         }
         "nds" => {
-            if is_app_installed("DeSmuME") {
+            if is_app_or_exe_installed("DeSmuME") {
                 "DeSmuME".to_string()
-            } else if is_app_installed("RetroArch") {
+            } else if is_app_or_exe_installed("RetroArch") {
                 "RetroArch".to_string()
-            } else if is_app_installed("OpenEmu") {
-                "OpenEmu".to_string()
             } else {
-                "No Launcher Found".to_string()
+                "DeSmuME".to_string()
             }
         }
         "3ds" => {
-            if is_app_installed("Citra") {
+            if is_app_or_exe_installed("Citra") {
                 "Citra".to_string()
             } else {
-                "No Launcher Found".to_string()
+                "Citra".to_string()
             }
         }
         "n64" | "z64" | "v64" => {
-            if is_app_installed("mupen64plus") {
+            if is_app_or_exe_installed("mupen64plus") {
                 "mupen64plus".to_string()
-            } else if is_app_installed("OpenEmu") {
-                "OpenEmu".to_string()
-            } else if is_app_installed("RetroArch") {
+            } else if is_app_or_exe_installed("RetroArch") {
                 "RetroArch".to_string()
             } else {
-                "No Launcher Found".to_string()
+                "RetroArch".to_string()
             }
         }
         "nes" | "snes" | "smc" | "sfc" => {
-            if is_app_installed("Snes9x") {
+            if is_app_or_exe_installed("Snes9x") {
                 "Snes9x".to_string()
-            } else if is_app_installed("OpenEmu") {
-                "OpenEmu".to_string()
-            } else if is_app_installed("RetroArch") {
+            } else if is_app_or_exe_installed("RetroArch") {
                 "RetroArch".to_string()
             } else {
-                "No Launcher Found".to_string()
+                "RetroArch".to_string()
             }
         }
         "nsp" | "xci" => {
-            if is_app_installed("Ryujinx") {
+            if is_app_or_exe_installed("Ryujinx") {
                 "Ryujinx".to_string()
-            } else if is_app_installed("Yuzu") {
+            } else if is_app_or_exe_installed("Yuzu") {
                 "Yuzu".to_string()
             } else {
-                "No Launcher Found".to_string()
+                "Ryujinx".to_string()
             }
         }
-        _ => "No Launcher Found".to_string(),
+        _ => "RetroArch".to_string(),
     }
 }
 
@@ -494,19 +625,36 @@ const SUPPORTED_ROM_EXTS: &[&str] = &[
 
 pub fn scan_roms() -> Vec<Game> {
     let mut results = Vec::new();
-    let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
-        return results;
-    };
+    let mut candidate_dirs = Vec::new();
 
-    let candidate_dirs = [
-        home.join("Documents/ROMS"),
-        home.join("Documents/ROMs"),
-        home.join("ROMS"),
-        home.join("ROMs"),
-        home.join("Downloads"),
-        home.join("Desktop/ROMS"),
-        home.join("Desktop/ROMs"),
-    ];
+    if let Some(home) = user_home_dir() {
+        candidate_dirs.push(home.join("Documents/ROMS"));
+        candidate_dirs.push(home.join("Documents/ROMs"));
+        candidate_dirs.push(home.join("Documents/Roms"));
+        candidate_dirs.push(home.join("ROMS"));
+        candidate_dirs.push(home.join("ROMs"));
+        candidate_dirs.push(home.join("Roms"));
+        candidate_dirs.push(home.join("Downloads"));
+        candidate_dirs.push(home.join("Downloads/ROMS"));
+        candidate_dirs.push(home.join("Downloads/ROMs"));
+        candidate_dirs.push(home.join("Desktop/ROMS"));
+        candidate_dirs.push(home.join("Desktop/ROMs"));
+    }
+
+    #[cfg(windows)]
+    {
+        for drive_letter in b'C'..=b'Z' {
+            let drive_root = format!("{}:\\", drive_letter as char);
+            let path = PathBuf::from(&drive_root);
+            if path.exists() {
+                candidate_dirs.push(path.join("ROMS"));
+                candidate_dirs.push(path.join("ROMs"));
+                candidate_dirs.push(path.join("Roms"));
+                candidate_dirs.push(path.join("Emulation/ROMs"));
+                candidate_dirs.push(path.join("Games/ROMS"));
+            }
+        }
+    }
 
     let mut canonical_dirs = HashSet::new();
     for dir in candidate_dirs {
@@ -538,7 +686,7 @@ pub fn scan_roms() -> Vec<Game> {
                             genre: gen_opt.map(|s| s.to_string()),
                             publisher: pub_opt.map(|s| s.to_string()),
                             year: yr_opt.map(|s| s.to_string()),
-                            tags: None,
+                            description: None,
                             custom_launcher_path: None,
                         });
                     }
@@ -570,14 +718,16 @@ pub async fn scan_for_games() -> Vec<Game> {
         }
     }
 
-    // Fetch SteamGridDB cover art concurrently
+    // Fetch cover art using SteamGridDB via Cloudflare Worker proxy
     let client = reqwest::Client::new();
     let mut tasks = Vec::new();
 
     for mut game in deduplicated {
         let client_clone = client.clone();
         tasks.push(async move {
-            game.cover_art = steamgriddb::get_cover_art(&client_clone, &game.name).await;
+            if game.cover_art.is_none() {
+                game.cover_art = steamgriddb::get_cover_art(&client_clone, &game.name).await;
+            }
             game
         });
     }

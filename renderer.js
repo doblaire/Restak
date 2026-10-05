@@ -111,13 +111,24 @@ function animateTrayPath(expanding) {
 function closeSearch() {
   if (navBar.classList.contains('search-expanded')) {
     navBar.classList.remove('search-expanded');
+    searchBtn.classList.add('search-closing');
     animateTrayPath(false);
     searchInput.blur();
+
+    const clearClosing = () => {
+      searchBtn.classList.remove('search-closing');
+      searchBtn.removeEventListener('mouseleave', clearClosing);
+    };
+    searchBtn.addEventListener('mouseleave', clearClosing);
+
     setTimeout(() => {
       if (!navBar.classList.contains('search-expanded')) {
         searchInput.value = '';
       }
-    }, 325);
+      if (!searchBtn.matches(':hover')) {
+        clearClosing();
+      }
+    }, 350);
   }
 }
 
@@ -130,6 +141,7 @@ searchBtn.addEventListener('click', (e) => {
   }
 
   if (!isExpanded) {
+    searchBtn.classList.remove('search-closing');
     navBar.classList.add('search-expanded');
     animateTrayPath(true);
     setTimeout(() => {
@@ -145,6 +157,15 @@ searchBtn.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeSearch();
+  }
+});
+
+// Close search when clicking outside
+document.addEventListener('mousedown', (e) => {
+  if (navBar && navBar.classList.contains('search-expanded')) {
+    if (!searchBtn.contains(e.target)) {
+      closeSearch();
+    }
   }
 });
 
@@ -222,12 +243,19 @@ document.addEventListener('mousemove', (e) => {
 });
 
 // --- Button Selection Handling ---
+let activeLocationBtn = document.querySelector('.nav-btn.selected') || document.querySelector('.nav-btn[data-action="home"]');
+
 document.querySelectorAll('.nav-btn').forEach((btn) => {
   btn.addEventListener('click', (e) => {
     const action = btn.getAttribute('data-action');
-    if (action === 'search') return; // Handled by search expand logic
+    if (action === 'search' || action === 'add') return; // Handled by search expand and modal toggle logic
+    closeSearch();
+    if (addTitleModal && addTitleModal.classList.contains('open')) {
+      closeModal();
+    }
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
+    activeLocationBtn = btn;
   });
 });
 
@@ -290,6 +318,7 @@ const addTitleModal = document.getElementById('addTitleModal');
 const modalWaysToAdd = document.getElementById('modalWaysToAdd');
 const modalScanFlow = document.getElementById('modalScanFlow');
 const modalEditGame = document.getElementById('modalEditGame');
+const modalManualAdd = document.getElementById('modalManualAdd');
 
 const scanFlowIcon = document.getElementById('scanFlowIcon');
 const scanFlowTitle = document.getElementById('scanFlowTitle');
@@ -302,29 +331,58 @@ const scanFlowSubmitText = document.getElementById('scanFlowSubmitText');
 const scanFlowGradient = document.getElementById('scanFlowGradient');
 const addNavBtn = document.querySelector('.nav-btn[data-action="add"]');
 const autoScanCard = document.querySelector('.auto-add[data-action="auto-add"]');
+const manualAddCard = document.querySelector('.auto-add[data-action="files-launcher"]');
 
 // Edit Game Modal references
 const editModalHeaderTitle = document.getElementById('editModalHeaderTitle');
-const editModalCloseBtn = document.getElementById('editModalCloseBtn');
 const editModalCover = document.getElementById('editModalCover');
 const editInputTitle = document.getElementById('editInputTitle');
 const editInputGenre = document.getElementById('editInputGenre');
 const editInputPublisher = document.getElementById('editInputPublisher');
 const editInputYear = document.getElementById('editInputYear');
 const editInputLauncher = document.getElementById('editInputLauncher');
-const editInputTags = document.getElementById('editInputTags');
+const editInputGameFile = document.getElementById('editInputGameFile');
+const editInputDescription = document.getElementById('editInputDescription');
+const editCoverUploadBtn = document.getElementById('editCoverUploadBtn');
+const editCoverRefetchBtn = document.getElementById('editCoverRefetchBtn');
+const editCoverBackBtn = document.getElementById('editCoverBackBtn');
+const editCoverFileInput = document.getElementById('editCoverFileInput');
 const editModalBackBtn = document.getElementById('editModalBackBtn');
 const editModalSaveBtn = document.getElementById('editModalSaveBtn');
-const editLauncherWrapper = document.querySelector('.autofilled-targeted-launcher-wrapper');
+const editLauncherWrapper = document.getElementById('editLauncherWrapper');
+const editGameFileWrapper = document.getElementById('editGameFileWrapper');
 
-const emptyState = document.getElementById('emptyState');
-const emptyStateAddBtn = document.getElementById('emptyStateAddBtn');
+// Manually Add Title Modal references
+const manualModalCover = document.getElementById('manualModalCover');
+const manualInputTitle = document.getElementById('manualInputTitle');
+const manualInputGenre = document.getElementById('manualInputGenre');
+const manualInputPublisher = document.getElementById('manualInputPublisher');
+const manualInputYear = document.getElementById('manualInputYear');
+const manualInputLauncher = document.getElementById('manualInputLauncher');
+const manualInputGameFile = document.getElementById('manualInputGameFile');
+const manualInputDescription = document.getElementById('manualInputDescription');
+const manualCoverUploadBtn = document.getElementById('manualCoverUploadBtn');
+const manualCoverRefetchBtn = document.getElementById('manualCoverRefetchBtn');
+const manualCoverBackBtn = document.getElementById('manualCoverBackBtn');
+const manualCoverFileInput = document.getElementById('manualCoverFileInput');
+const manualModalBackBtn = document.getElementById('manualModalBackBtn');
+const manualModalSaveBtn = document.getElementById('manualModalSaveBtn');
+const manualLauncherWrapper = document.getElementById('manualLauncherWrapper');
+const manualGameFileWrapper = document.getElementById('manualGameFileWrapper');
+
+let manualAddGameData = {
+  name: '',
+  genre: '',
+  publisher: '',
+  year: '',
+  launcher: '',
+  fullPath: '',
+  description: '',
+  coverArt: null,
+  _coverHistory: []
+};
+
 const gameShelf = document.getElementById('gameShelf');
-
-const blackCurtain = document.getElementById('blackCurtain');
-const launchStatusContainer = document.getElementById('launchStatusContainer');
-const launchStatusTitle = document.getElementById('launchStatusTitle');
-const launchStatusSubtitle = document.getElementById('launchStatusSubtitle');
 
 let activeEditingGame = null;
 
@@ -342,9 +400,6 @@ async function invokeBackend(command, args = {}) {
     if (command === 'save_library' && window.restak.saveLibrary) return await window.restak.saveLibrary(args.games);
     if (command === 'pick_launcher' && window.restak.pickLauncher) return await window.restak.pickLauncher();
     if (command === 'launch_game' && window.restak.launchGame) return await window.restak.launchGame(args.game);
-    if (command === 'enter_launch_mode' && window.restak.enterLaunchMode) return await window.restak.enterLaunchMode();
-    if (command === 'prepare_game_reveal' && window.restak.prepareGameReveal) return await window.restak.prepareGameReveal();
-    if (command === 'complete_game_reveal' && window.restak.completeGameReveal) return await window.restak.completeGameReveal();
   }
   return null;
 }
@@ -354,7 +409,7 @@ let frameTransitionTimer = null;
 let isFrameTransitioning = false;
 
 function hideAllModalFrames() {
-  [modalWaysToAdd, modalScanFlow, modalEditGame].filter(Boolean).forEach((f) => {
+  [modalWaysToAdd, modalScanFlow, modalEditGame, modalManualAdd].filter(Boolean).forEach((f) => {
     f.classList.add('hidden');
     f.style.opacity = '0';
   });
@@ -368,7 +423,7 @@ function showFrame(frame, callback) {
     frameTransitionTimer = null;
   }
 
-  const frames = [modalWaysToAdd, modalScanFlow, modalEditGame].filter(Boolean);
+  const frames = [modalWaysToAdd, modalScanFlow, modalEditGame, modalManualAdd].filter(Boolean);
   const currentActive = frames.find((f) => !f.classList.contains('hidden'));
 
   // If the modal overlay is not open, or no frame was active, or target is already active:
@@ -390,6 +445,11 @@ function showFrame(frame, callback) {
       if (f === frame) {
         f.classList.remove('hidden');
         f.style.opacity = '1';
+        f.scrollTop = 0;
+        const scrollableInner = f.querySelector('.frame-parent, #scanFlowContent');
+        if (scrollableInner) {
+          scrollableInner.scrollTop = 0;
+        }
       } else {
         f.classList.add('hidden');
         f.style.opacity = '0';
@@ -407,7 +467,8 @@ function showFrame(frame, callback) {
   const FRAME_HEIGHTS = new Map([
     [modalWaysToAdd, 351],
     [modalScanFlow, 700],
-    [modalEditGame, 575],
+    [modalEditGame, 607],
+    [modalManualAdd, 607],
   ]);
 
   const startHeight = FRAME_HEIGHTS.get(currentActive) || currentActive.offsetHeight;
@@ -445,10 +506,24 @@ function showFrame(frame, callback) {
       incomingCurtain.style.opacity = '1';
     }
 
+    // Hide real content so nothing squished/partial can show while the height morphs
+    const incomingContent = Array.from(frame.children).filter((c) => c !== incomingCurtain);
+    incomingContent.forEach((child) => {
+      child.style.transition = 'none';
+      child.style.opacity = '0';
+    });
+
     frame.classList.remove('hidden');
     frame.style.opacity = '1';
     frame.style.transition = 'none';
     frame.style.height = `${startHeight}px`;
+
+    // Ensure incoming frame and any scrollable content start cleanly at the top
+    frame.scrollTop = 0;
+    const scrollableInner = frame.querySelector('.frame-parent, #scanFlowContent');
+    if (scrollableInner) {
+      scrollableInner.scrollTop = 0;
+    }
 
     if (callback) callback();
 
@@ -457,6 +532,10 @@ function showFrame(frame, callback) {
 
     // 5. Morph the container height from startHeight to targetHeight using Figma's spring physics
     requestAnimationFrame(() => {
+      frame.scrollTop = 0;
+      if (scrollableInner) {
+        scrollableInner.scrollTop = 0;
+      }
       requestAnimationFrame(() => {
         frame.style.transition = 'height var(--spring-duration) var(--spring-easing)';
         frame.style.height = `${targetHeight}px`;
@@ -471,13 +550,25 @@ function showFrame(frame, callback) {
       frame.style.transition = '';
 
       void frame.offsetHeight;
+      frame.scrollTop = 0;
+      if (scrollableInner) {
+        scrollableInner.scrollTop = 0;
+      }
 
       if (incomingCurtain) {
         incomingCurtain.style.transition = 'opacity 0.2s ease';
         incomingCurtain.style.opacity = '0';
       }
+      incomingContent.forEach((child) => {
+        child.style.transition = 'opacity 0.2s ease';
+        child.style.opacity = '1';
+      });
 
       setTimeout(() => {
+        incomingContent.forEach((child) => {
+          child.style.transition = '';
+          child.style.opacity = '';
+        });
         frame.style.height = '';
         if (addTitleModal) {
           addTitleModal.style.pointerEvents = '';
@@ -490,6 +581,14 @@ function showFrame(frame, callback) {
 
 function openModal() {
   if (addTitleModal) {
+    const currentSelected = document.querySelector('.nav-btn.selected');
+    if (currentSelected && currentSelected.getAttribute('data-action') !== 'add') {
+      activeLocationBtn = currentSelected;
+    }
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('selected'));
+    if (addNavBtn) {
+      addNavBtn.classList.add('selected');
+    }
     showFrame(modalWaysToAdd);
     addTitleModal.classList.add('open');
   }
@@ -503,14 +602,27 @@ function closeModal() {
     frameTransitionTimer = null;
   }
   isFrameTransitioning = false;
+  activeEditingGame = null;
   if (addTitleModal) {
     addTitleModal.style.pointerEvents = '';
     addTitleModal.classList.remove('open');
+
+    // Remove black selected state from add button and restore viewer location
+    if (addNavBtn) {
+      addNavBtn.classList.remove('selected');
+    }
+    const targetLocation = activeLocationBtn || document.querySelector('.nav-btn[data-action="home"]');
+    if (targetLocation) {
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('selected'));
+      targetLocation.classList.add('selected');
+    }
+
     setTimeout(() => {
       document.querySelectorAll('.modal-curtain').forEach((c) => {
         c.style.opacity = '0';
         c.style.transition = '';
       });
+      resetScanFlowToSearching();
       showFrame(modalWaysToAdd);
     }, 350);
   }
@@ -532,14 +644,131 @@ if (addNavBtn && addTitleModal) {
   });
 
   // Clicking outside the modal does not close it (user must use close button or explicit navigation)
+}
 
-  // Close on Escape
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && addTitleModal.classList.contains('open')) {
+// --- Game Floating Context Menu ---
+const gameContextMenu = document.getElementById('modalGameContext');
+const gameContextMenuBackdrop = document.getElementById('gameContextMenuBackdrop');
+let contextMenuTargetGame = null;
+
+function openGameContextMenu(game, e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  contextMenuTargetGame = game;
+  if (!gameContextMenu) return;
+
+  // Position at cursor coordinates
+  const clientX = e ? e.clientX : window.innerWidth / 2;
+  const clientY = e ? e.clientY : window.innerHeight / 2;
+
+  // Measure or estimate menu dimensions
+  const menuWidth = gameContextMenu.offsetWidth || 260;
+  const menuHeight = gameContextMenu.offsetHeight || 160;
+
+  // Ensure menu stays within visible viewport
+  let posX = clientX;
+  let posY = clientY;
+  let originX = 'left';
+  let originY = 'top';
+
+  if (posX + menuWidth > window.innerWidth - 12) {
+    posX = Math.max(12, posX - menuWidth);
+    originX = 'right';
+  }
+  if (posY + menuHeight > window.innerHeight - 12) {
+    posY = Math.max(12, posY - menuHeight);
+    originY = 'bottom';
+  }
+
+  gameContextMenu.style.left = `${posX}px`;
+  gameContextMenu.style.top = `${posY}px`;
+  gameContextMenu.style.transformOrigin = `${originX} ${originY}`;
+
+  gameContextMenu.classList.add('open');
+  if (gameContextMenuBackdrop) {
+    gameContextMenuBackdrop.classList.add('open');
+  }
+}
+
+function closeGameContextMenu() {
+  if (gameContextMenu) {
+    gameContextMenu.classList.remove('open');
+  }
+  if (gameContextMenuBackdrop) {
+    gameContextMenuBackdrop.classList.remove('open');
+  }
+  contextMenuTargetGame = null;
+}
+
+if (gameContextMenuBackdrop) {
+  gameContextMenuBackdrop.addEventListener('mousedown', closeGameContextMenu);
+}
+
+// Close on window resize, scroll, or click outside
+window.addEventListener('resize', closeGameContextMenu);
+window.addEventListener('wheel', closeGameContextMenu, { passive: true });
+document.addEventListener('mousedown', (e) => {
+  if (gameContextMenu && !gameContextMenu.contains(e.target) && e.target !== gameContextMenuBackdrop) {
+    closeGameContextMenu();
+  }
+});
+
+// Global context menu listener: suppress native browser menu and trigger custom menu for cards
+window.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const card = e.target.closest('.shelf-card');
+  if (card && card.__game) {
+    openGameContextMenu(card.__game, e);
+  } else {
+    closeGameContextMenu();
+  }
+});
+
+// Prevent ghost image dragging of covers and icons
+document.addEventListener('dragstart', (e) => {
+  if (e.target && (e.target.tagName === 'IMG' || e.target.tagName === 'SVG' || e.target.closest('.shelf-card, .content-placeholder-parent'))) {
+    e.preventDefault();
+  }
+});
+
+// Prevent selection on cards and UI controls while allowing text in inputs & readable text
+document.addEventListener('selectstart', (e) => {
+  if (e.target && e.target.closest('input, textarea, [contenteditable="true"], .selectable-text')) {
+    if (e.buttons === 2) {
+      e.preventDefault();
+    }
+    return;
+  }
+  e.preventDefault();
+});
+
+// Global modal escape handler
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (gameContextMenu && gameContextMenu.classList.contains('open')) {
+      closeGameContextMenu();
+      return;
+    }
+    if (addTitleModal && addTitleModal.classList.contains('open')) {
+      if (modalEditGame && !modalEditGame.classList.contains('hidden')) {
+        if (!isFrameTransitioning) {
+          autoSaveEditingGame();
+          showFrame(modalScanFlow);
+        }
+        return;
+      }
+      if (modalManualAdd && !modalManualAdd.classList.contains('hidden')) {
+        if (!isFrameTransitioning) {
+          showFrame(modalWaysToAdd);
+        }
+        return;
+      }
       closeModal();
     }
-  });
-}
+  }
+});
 
 // --- Format Path helper: Max 37 chars followed by '...' (total 40 chars max) ---
 function formatPath(pathStr) {
@@ -611,8 +840,8 @@ function createGameCard(game) {
   editBtn.setAttribute('aria-label', 'Edit Game Details');
   editBtn.innerHTML = `
     <svg height="25" width="25" fill="none" viewBox="0 0 25 25" xmlns="http://www.w3.org/2000/svg">
-      <path d="M11.25 0.999807C11.6642 0.999808 12 1.33559 12 1.74981V3.24981C11.9999 3.66393 11.6641 3.99981 11.25 3.99981H6C4.34315 3.99981 3 5.34295 3 6.99981V18.9998C3.00011 20.6566 4.34321 21.9998 6 21.9998H18C19.6568 21.9998 20.9999 20.6566 21 18.9998V13.7498C21 13.3356 21.3358 12.9998 21.75 12.9998H23.25C23.6642 12.9998 24 13.3356 24 13.7498V18.9998C23.9999 22.3134 21.3136 24.9998 18 24.9998H6C2.68636 24.9998 0.000107349 22.3134 0 18.9998V6.99981L0.00683594 6.69024C0.167816 3.52028 2.79003 0.999807 6 0.999807H11.25Z" fill="#9E9E9E"/>
-      <path d="M18.0176 0.585745C18.7986 -0.19522 20.0647 -0.195276 20.8457 0.585745L24.3809 4.1209C25.1617 4.90193 25.1618 6.16802 24.3809 6.94903L13.5391 17.7918C13.2331 18.0976 12.8355 18.2961 12.4072 18.3572L8.2832 18.9461C6.9636 19.1345 5.83254 18.0039 6.02051 16.6844L6.60938 12.5594C6.67055 12.1312 6.86901 11.7335 7.1748 11.4275L18.0176 0.585745ZM9.53223 13.3133L9.17871 15.7879L11.6533 15.4344L21.5527 5.53496L19.4316 3.41387L9.53223 13.3133Z" fill="#9E9E9E" fill-rule="evenodd"/>
+      <path d="M11.25 0.999807C11.6642 0.999808 12 1.33559 12 1.74981V3.24981C11.9999 3.66393 11.6641 3.99981 11.25 3.99981H6C4.34315 3.99981 3 5.34295 3 6.99981V18.9998C3.00011 20.6566 4.34321 21.9998 6 21.9998H18C19.6568 21.9998 20.9999 20.6566 21 18.9998V13.7498C21 13.3356 21.3358 12.9998 21.75 12.9998H23.25C23.6642 12.9998 24 13.3356 24 13.7498V18.9998C23.9999 22.3134 21.3136 24.9998 18 24.9998H6C2.68636 24.9998 0.000107349 22.3134 0 18.9998V6.99981L0.00683594 6.69024C0.167816 3.52028 2.79003 0.999807 6 0.999807H11.25Z" fill="#707070"/>
+      <path d="M18.0176 0.585745C18.7986 -0.19522 20.0647 -0.195276 20.8457 0.585745L24.3809 4.1209C25.1617 4.90193 25.1618 6.16802 24.3809 6.94903L13.5391 17.7918C13.2331 18.0976 12.8355 18.2961 12.4072 18.3572L8.2832 18.9461C6.9636 19.1345 5.83254 18.0039 6.02051 16.6844L6.60938 12.5594C6.67055 12.1312 6.86901 11.7335 7.1748 11.4275L18.0176 0.585745ZM9.53223 13.3133L9.17871 15.7879L11.6533 15.4344L21.5527 5.53496L19.4316 3.41387L9.53223 13.3133Z" fill="#707070" fill-rule="evenodd"/>
     </svg>
   `;
   editBtn.addEventListener('click', (e) => {
@@ -622,7 +851,7 @@ function createGameCard(game) {
   card.appendChild(editBtn);
 
   card._gameRef = game;
-  card.dataset.gamePath = game.path || '';
+  card.dataset.gameKey = game.fullPath || `${game.path}:::${game.name}`;
 
   return card;
 }
@@ -699,6 +928,7 @@ function resetScanFlowToSearching() {
 
   if (modalScanFlow) {
     modalScanFlow.classList.remove('has-results');
+    modalScanFlow.scrollTop = 0;
   }
 
   if (scanFlowIcon) {
@@ -722,6 +952,12 @@ function resetScanFlowToSearching() {
       <div class="frame-item" data-slot="1"></div>
       <div class="frame-inner" data-slot="2"></div>
     `;
+    scanFlowContent.scrollTop = 0;
+    requestAnimationFrame(() => {
+      if (scanFlowContent) {
+        scanFlowContent.scrollTop = 0;
+      }
+    });
   }
   if (scanFlowGradient) {
     scanFlowGradient.style.opacity = '1';
@@ -826,7 +1062,7 @@ function updateScanFlowToResults(games) {
       scanFlowContent.innerHTML = '';
       const empty = document.createElement('div');
       empty.style.cssText = 'color: var(--color-dimgray); font-size: 18px; padding: 24px; text-align: center; font-family: var(--font-inter-display); width: 100%;';
-      empty.textContent = 'No games detected in /Applications, Steam, or ROM directories.';
+      empty.textContent = 'No games detected in installed applications, Steam libraries, or ROM directories.';
       scanFlowContent.appendChild(empty);
     }, 200);
     return;
@@ -913,6 +1149,9 @@ if (autoScanCard) {
     // 1. Reset scan flow to searching state and show 840x700 frame
     resetScanFlowToSearching();
     showFrame(modalScanFlow);
+    if (scanFlowContent) {
+      scanFlowContent.scrollTop = 0;
+    }
 
     const scanStartTime = performance.now();
 
@@ -962,7 +1201,9 @@ if (autoScanCard) {
 if (scanFlowBackBtn) {
   scanFlowBackBtn.addEventListener('click', () => {
     if (isFrameTransitioning) return;
-    showFrame(modalWaysToAdd);
+    showFrame(modalWaysToAdd, () => {
+      resetScanFlowToSearching();
+    });
   });
 }
 
@@ -1044,21 +1285,47 @@ function autoSaveEditingGame() {
       activeEditingGame.launcher = val;
     }
   }
-  if (editInputTags) {
-    activeEditingGame.tags = editInputTags.value.trim();
+  if (editInputGameFile) {
+    const val = editInputGameFile.value.trim();
+    activeEditingGame.fullPath = val;
+    activeEditingGame.path = val;
+  }
+  if (editInputDescription) {
+    activeEditingGame.description = editInputDescription.value.trim();
   }
   updateCardInResults(activeEditingGame);
 }
 
 // Attach real-time auto-saving on every keystroke
-[editInputTitle, editInputGenre, editInputPublisher, editInputYear, editInputLauncher, editInputTags].forEach((input) => {
+[editInputTitle, editInputGenre, editInputPublisher, editInputYear, editInputLauncher, editInputGameFile, editInputDescription].forEach((input) => {
   if (!input) return;
   input.addEventListener('input', autoSaveEditingGame);
 });
 
+function renderEditModalCover(src) {
+  if (!editModalCover) return;
+  editModalCover.innerHTML = '';
+  if (src) {
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = (activeEditingGame && activeEditingGame.name) || 'Game Cover';
+    editModalCover.appendChild(img);
+  }
+}
+
+function updateCoverBackBtnState() {
+  if (!editCoverBackBtn) return;
+  const hasHistory = !!(activeEditingGame && activeEditingGame._coverHistory && activeEditingGame._coverHistory.length > 0);
+  editCoverBackBtn.style.opacity = hasHistory ? '1' : '0.5';
+  editCoverBackBtn.style.cursor = hasHistory ? 'pointer' : 'default';
+}
+
 function openEditGameModal(game) {
   if (!game) return;
   activeEditingGame = game;
+  if (!activeEditingGame._coverHistory) {
+    activeEditingGame._coverHistory = [];
+  }
 
   if (editModalHeaderTitle) {
     editModalHeaderTitle.textContent = game.name || 'Game Title';
@@ -1078,32 +1345,175 @@ function openEditGameModal(game) {
   if (editInputLauncher) {
     editInputLauncher.value = game.launcher || '';
   }
-  if (editInputTags) {
-    editInputTags.value = game.tags || '';
+  if (editInputGameFile) {
+    editInputGameFile.value = game.fullPath || game.path || '';
+  }
+  if (editInputDescription) {
+    editInputDescription.value = game.description || '';
   }
 
-  if (editModalCover) {
-    editModalCover.innerHTML = '';
-    if (game.coverArt) {
-      const img = document.createElement('img');
-      img.src = game.coverArt;
-      img.alt = game.name || 'Game Cover';
-      editModalCover.appendChild(img);
-    }
-  }
+  renderEditModalCover(game.coverArt);
+  updateCoverBackBtnState();
 
   showFrame(modalEditGame);
 }
 
+// --- Cover Actions: Upload, Refetch, Revert ---
+if (editCoverUploadBtn) {
+  editCoverUploadBtn.addEventListener('click', () => {
+    if (editCoverFileInput) {
+      editCoverFileInput.value = '';
+      editCoverFileInput.click();
+    }
+  });
+}
+
+if (editCoverFileInput) {
+  editCoverFileInput.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file || !activeEditingGame) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      if (!activeEditingGame._coverHistory) {
+        activeEditingGame._coverHistory = [];
+      }
+      if (activeEditingGame.coverArt) {
+        activeEditingGame._coverHistory.push(activeEditingGame.coverArt);
+      }
+      activeEditingGame.coverArt = dataUrl;
+      renderEditModalCover(dataUrl);
+      updateCoverBackBtnState();
+      updateCardInResults(activeEditingGame);
+      autoSaveEditingGame();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+if (editCoverRefetchBtn) {
+  editCoverRefetchBtn.addEventListener('click', async () => {
+    if (!activeEditingGame) return;
+    const title = editInputTitle?.value?.trim() || activeEditingGame.name;
+    if (!title) return;
+
+    const cycleCovers = (candidates) => {
+      if (!candidates || candidates.length === 0) return false;
+      const currentArt = activeEditingGame.coverArt;
+      let nextArt = null;
+
+      for (let i = 0; i < candidates.length; i++) {
+        activeEditingGame._coverIndex = ((activeEditingGame._coverIndex ?? -1) + 1) % candidates.length;
+        const cand = candidates[activeEditingGame._coverIndex];
+        if (cand !== currentArt) {
+          nextArt = cand;
+          break;
+        }
+      }
+
+      if (!nextArt && candidates[0] !== currentArt) {
+        nextArt = candidates[0];
+      }
+
+      if (nextArt && nextArt !== currentArt) {
+        if (!activeEditingGame._coverHistory) activeEditingGame._coverHistory = [];
+        if (currentArt) {
+          activeEditingGame._coverHistory.push(currentArt);
+        }
+        activeEditingGame.coverArt = nextArt;
+        renderEditModalCover(nextArt);
+        updateCoverBackBtnState();
+        updateCardInResults(activeEditingGame);
+        autoSaveEditingGame();
+        return true;
+      }
+      return false;
+    };
+
+    // If candidate covers for this title are already loaded in memory, cycle immediately
+    if (activeEditingGame._coverListTitle === title && activeEditingGame._coverList && activeEditingGame._coverList.length > 1) {
+      cycleCovers(activeEditingGame._coverList);
+      return;
+    }
+
+    try {
+      const details = await invokeBackend('lookup_game_info', { title });
+      if (details) {
+        const candidates = (details.all_covers && details.all_covers.length > 0)
+          ? details.all_covers
+          : (details.cover_url ? [details.cover_url] : []);
+
+        if (candidates.length > 0) {
+          activeEditingGame._coverList = candidates;
+          activeEditingGame._coverListTitle = title;
+          const currentIdx = candidates.indexOf(activeEditingGame.coverArt);
+          activeEditingGame._coverIndex = currentIdx !== -1 ? currentIdx : 0;
+          cycleCovers(candidates);
+        }
+
+        if (details.genre && !activeEditingGame.genre) {
+          activeEditingGame.genre = details.genre;
+          if (editInputGenre) editInputGenre.value = details.genre;
+        }
+        if (details.publisher && !activeEditingGame.publisher) {
+          activeEditingGame.publisher = details.publisher;
+          if (editInputPublisher) editInputPublisher.value = details.publisher;
+        }
+        if (details.year && !activeEditingGame.year) {
+          activeEditingGame.year = details.year;
+          if (editInputYear) editInputYear.value = details.year;
+        }
+        if (details.description && !activeEditingGame.description) {
+          activeEditingGame.description = details.description;
+          if (editInputDescription) editInputDescription.value = details.description;
+        }
+        updateCardInResults(activeEditingGame);
+        autoSaveEditingGame();
+      }
+    } catch (err) {
+      console.error('Failed to refetch game details:', err);
+    }
+  });
+}
+
+if (editCoverBackBtn) {
+  editCoverBackBtn.addEventListener('click', () => {
+    if (!activeEditingGame || !activeEditingGame._coverHistory || activeEditingGame._coverHistory.length === 0) return;
+    const prevCover = activeEditingGame._coverHistory.pop();
+    activeEditingGame.coverArt = prevCover;
+    if (activeEditingGame._coverList) {
+      const idx = activeEditingGame._coverList.indexOf(prevCover);
+      if (idx !== -1) {
+        activeEditingGame._coverIndex = idx;
+      }
+    }
+    renderEditModalCover(prevCover);
+    updateCoverBackBtnState();
+    updateCardInResults(activeEditingGame);
+    autoSaveEditingGame();
+  });
+}
+
 function updateCardInResults(game) {
   if (!scanFlowContent || !game) return;
+  const targetKey = game.fullPath || `${game.path}:::${game.name}`;
   const cards = scanFlowContent.querySelectorAll('.content-placeholder-parent');
   cards.forEach((card) => {
-    if (card._gameRef === game || (card.dataset.gamePath && card.dataset.gamePath === game.path)) {
+    if (card._gameRef === game || (card.dataset.gameKey && card.dataset.gameKey === targetKey)) {
       const titleEl = card.querySelector('.games-found');
       if (titleEl) titleEl.textContent = game.name;
       const launcherEl = card.querySelector('.dolphin-emulator');
       if (launcherEl) launcherEl.textContent = game.launcher;
+      if (game.coverArt) {
+        const artBox = card.querySelector('.content-placeholder');
+        if (artBox) {
+          artBox.innerHTML = '';
+          const img = document.createElement('img');
+          img.src = game.coverArt;
+          img.alt = game.name;
+          artBox.appendChild(img);
+        }
+      }
     }
   });
 }
@@ -1113,15 +1523,7 @@ if (editModalBackBtn) {
   editModalBackBtn.addEventListener('click', () => {
     if (isFrameTransitioning) return;
     autoSaveEditingGame();
-    showFrame(modalScanFlow);
-  });
-}
-
-// Close 'X' button on Edit Game Modal directly saves and returns to scan results
-if (editModalCloseBtn) {
-  editModalCloseBtn.addEventListener('click', () => {
-    if (isFrameTransitioning) return;
-    autoSaveEditingGame();
+    activeEditingGame = null;
     showFrame(modalScanFlow);
   });
 }
@@ -1131,6 +1533,7 @@ if (editModalSaveBtn) {
   editModalSaveBtn.addEventListener('click', () => {
     if (isFrameTransitioning) return;
     autoSaveEditingGame();
+    activeEditingGame = null;
     showFrame(modalScanFlow);
   });
 }
@@ -1162,12 +1565,377 @@ if (editLauncherWrapper) {
   editLauncherWrapper.addEventListener('click', handleLauncherPick);
 }
 
-// --- Empty State & Home Screen Shelf Management ---
-if (emptyStateAddBtn) {
-  emptyStateAddBtn.addEventListener('click', () => {
-    openModal();
+// --- Game File Picker for Edit Game Details ---
+async function handleEditGameFilePick() {
+  try {
+    const pickedPath = await invokeBackend('pick_game_file');
+    if (pickedPath && activeEditingGame) {
+      activeEditingGame.fullPath = pickedPath;
+      activeEditingGame.path = pickedPath;
+      if (editInputGameFile) {
+        editInputGameFile.value = pickedPath;
+      }
+      autoSaveEditingGame();
+      updateCardInResults(activeEditingGame);
+    }
+  } catch (err) {
+    console.error('Failed to pick game file:', err);
+  }
+}
+
+if (editInputGameFile) {
+  editInputGameFile.addEventListener('click', () => {
+    if (!editInputGameFile.value) {
+      handleEditGameFilePick();
+    }
   });
 }
+
+// ============================================================
+// MANUALLY ADD TITLE MODAL FLOW
+// ============================================================
+
+function renderManualModalCover(src) {
+  if (!manualModalCover) return;
+  manualModalCover.innerHTML = '';
+  if (src) {
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = manualAddGameData.name || 'Game Cover';
+    manualModalCover.appendChild(img);
+  }
+}
+
+function updateManualCoverBackBtnState() {
+  if (!manualCoverBackBtn) return;
+  const hasHistory = !!(manualAddGameData._coverHistory && manualAddGameData._coverHistory.length > 0);
+  manualCoverBackBtn.style.opacity = hasHistory ? '1' : '0.5';
+  manualCoverBackBtn.style.cursor = hasHistory ? 'pointer' : 'default';
+}
+
+function openManualAddModal() {
+  manualAddGameData = {
+    name: '',
+    genre: '',
+    publisher: '',
+    year: '',
+    launcher: '',
+    fullPath: '',
+    description: '',
+    coverArt: null,
+    _coverHistory: []
+  };
+
+  if (manualInputTitle) manualInputTitle.value = '';
+  if (manualInputGenre) manualInputGenre.value = '';
+  if (manualInputPublisher) manualInputPublisher.value = '';
+  if (manualInputYear) manualInputYear.value = '';
+  if (manualInputLauncher) manualInputLauncher.value = '';
+  if (manualInputGameFile) manualInputGameFile.value = '';
+  if (manualInputDescription) manualInputDescription.value = '';
+
+  renderManualModalCover(null);
+  updateManualCoverBackBtnState();
+
+  showFrame(modalManualAdd);
+}
+
+// Wire Manual Card in modalWaysToAdd
+if (manualAddCard) {
+  manualAddCard.addEventListener('click', () => {
+    if (isFrameTransitioning) return;
+    openManualAddModal();
+  });
+}
+
+// Live sync manual inputs to manualAddGameData
+function syncManualAddData() {
+  if (manualInputTitle) manualAddGameData.name = manualInputTitle.value.trim();
+  if (manualInputGenre) manualAddGameData.genre = manualInputGenre.value.trim();
+  if (manualInputPublisher) manualAddGameData.publisher = manualInputPublisher.value.trim();
+  if (manualInputYear) manualAddGameData.year = manualInputYear.value.trim();
+  if (manualInputLauncher) manualAddGameData.launcher = manualInputLauncher.value.trim();
+  if (manualInputGameFile) {
+    const val = manualInputGameFile.value.trim();
+    manualAddGameData.fullPath = val;
+    manualAddGameData.path = val;
+  }
+  if (manualInputDescription) manualAddGameData.description = manualInputDescription.value.trim();
+}
+
+[manualInputTitle, manualInputGenre, manualInputPublisher, manualInputYear, manualInputLauncher, manualInputGameFile, manualInputDescription].forEach((input) => {
+  if (!input) return;
+  input.addEventListener('input', syncManualAddData);
+});
+
+// Manual Cover Upload
+if (manualCoverUploadBtn) {
+  manualCoverUploadBtn.addEventListener('click', () => {
+    if (manualCoverFileInput) {
+      manualCoverFileInput.value = '';
+      manualCoverFileInput.click();
+    }
+  });
+}
+
+if (manualCoverFileInput) {
+  manualCoverFileInput.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      if (!manualAddGameData._coverHistory) {
+        manualAddGameData._coverHistory = [];
+      }
+      if (manualAddGameData.coverArt) {
+        manualAddGameData._coverHistory.push(manualAddGameData.coverArt);
+      }
+      manualAddGameData.coverArt = dataUrl;
+      renderManualModalCover(dataUrl);
+      updateManualCoverBackBtnState();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Manual Cover Refetch
+if (manualCoverRefetchBtn) {
+  manualCoverRefetchBtn.addEventListener('click', async () => {
+    const title = manualInputTitle?.value?.trim() || manualAddGameData.name;
+    if (!title) return;
+
+    const cycleCovers = (candidates) => {
+      if (!candidates || candidates.length === 0) return false;
+      const currentArt = manualAddGameData.coverArt;
+      let nextArt = null;
+
+      for (let i = 0; i < candidates.length; i++) {
+        manualAddGameData._coverIndex = ((manualAddGameData._coverIndex ?? -1) + 1) % candidates.length;
+        const cand = candidates[manualAddGameData._coverIndex];
+        if (cand !== currentArt) {
+          nextArt = cand;
+          break;
+        }
+      }
+
+      if (!nextArt && candidates[0] !== currentArt) {
+        nextArt = candidates[0];
+      }
+
+      if (nextArt && nextArt !== currentArt) {
+        if (!manualAddGameData._coverHistory) manualAddGameData._coverHistory = [];
+        if (currentArt) {
+          manualAddGameData._coverHistory.push(currentArt);
+        }
+        manualAddGameData.coverArt = nextArt;
+        renderManualModalCover(nextArt);
+        updateManualCoverBackBtnState();
+        return true;
+      }
+      return false;
+    };
+
+    if (manualAddGameData._coverListTitle === title && manualAddGameData._coverList && manualAddGameData._coverList.length > 1) {
+      cycleCovers(manualAddGameData._coverList);
+      return;
+    }
+
+    try {
+      const details = await invokeBackend('lookup_game_info', { title });
+      if (details) {
+        const candidates = (details.all_covers && details.all_covers.length > 0)
+          ? details.all_covers
+          : (details.cover_url ? [details.cover_url] : []);
+
+        if (candidates.length > 0) {
+          manualAddGameData._coverList = candidates;
+          manualAddGameData._coverListTitle = title;
+          const currentIdx = candidates.indexOf(manualAddGameData.coverArt);
+          manualAddGameData._coverIndex = currentIdx !== -1 ? currentIdx : 0;
+          cycleCovers(candidates);
+        }
+
+        if (details.genre && !manualAddGameData.genre) {
+          manualAddGameData.genre = details.genre;
+          if (manualInputGenre) manualInputGenre.value = details.genre;
+        }
+        if (details.publisher && !manualAddGameData.publisher) {
+          manualAddGameData.publisher = details.publisher;
+          if (manualInputPublisher) manualInputPublisher.value = details.publisher;
+        }
+        if (details.year && !manualAddGameData.year) {
+          manualAddGameData.year = details.year;
+          if (manualInputYear) manualInputYear.value = details.year;
+        }
+        if (details.description && !manualAddGameData.description) {
+          manualAddGameData.description = details.description;
+          if (manualInputDescription) manualInputDescription.value = details.description;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to refetch manual game details:', err);
+    }
+  });
+}
+
+// Manual Cover Revert
+if (manualCoverBackBtn) {
+  manualCoverBackBtn.addEventListener('click', () => {
+    if (!manualAddGameData._coverHistory || manualAddGameData._coverHistory.length === 0) return;
+    const prevCover = manualAddGameData._coverHistory.pop();
+    manualAddGameData.coverArt = prevCover;
+    if (manualAddGameData._coverList) {
+      const idx = manualAddGameData._coverList.indexOf(prevCover);
+      if (idx !== -1) {
+        manualAddGameData._coverIndex = idx;
+      }
+    }
+    renderManualModalCover(prevCover);
+    updateManualCoverBackBtnState();
+  });
+}
+
+// Manual Targeted Launcher Picker
+async function handleManualLauncherPick() {
+  try {
+    const pickedPath = await invokeBackend('pick_launcher');
+    if (pickedPath) {
+      let appName = pickedPath.split('/').pop().replace(/\.app$/i, '');
+      if (appName.toLowerCase() === 'dolphin') appName = 'Dolphin Emulator';
+      manualAddGameData.launcher = appName;
+      manualAddGameData.customLauncherPath = pickedPath;
+      if (manualInputLauncher) {
+        manualInputLauncher.value = appName;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to pick launcher:', err);
+  }
+}
+
+if (manualInputLauncher) {
+  manualInputLauncher.addEventListener('click', handleManualLauncherPick);
+}
+if (manualLauncherWrapper) {
+  manualLauncherWrapper.addEventListener('click', handleManualLauncherPick);
+}
+
+// Manual Game File Picker
+async function handleManualGameFilePick() {
+  try {
+    const pickedPath = await invokeBackend('pick_game_file');
+    if (pickedPath) {
+      manualAddGameData.fullPath = pickedPath;
+      manualAddGameData.path = pickedPath;
+      if (manualInputGameFile) {
+        manualInputGameFile.value = pickedPath;
+      }
+      // If user hasn't typed a title yet, autofill title from filename
+      let titleToLookup = manualAddGameData.name || (manualInputTitle && manualInputTitle.value.trim());
+      if (!titleToLookup) {
+        const fileName = pickedPath.split('/').pop().split('\\').pop();
+        const baseName = fileName.replace(/\.[^/.]+$/, '').replace(/[_\-\.]+/g, ' ').trim();
+        manualAddGameData.name = baseName;
+        if (manualInputTitle) {
+          manualInputTitle.value = baseName;
+        }
+        titleToLookup = baseName;
+      }
+
+      // Fast check: look up system/SteamGridDB/IGDB data and fill empty fields immediately
+      if (titleToLookup) {
+        invokeBackend('lookup_game_info', { title: titleToLookup }).then((details) => {
+          if (details) {
+            if (details.all_covers && details.all_covers.length > 0) {
+              manualAddGameData._coverList = details.all_covers;
+              manualAddGameData._coverListTitle = titleToLookup;
+              manualAddGameData._coverIndex = 0;
+            }
+            if (details.cover_url && !manualAddGameData.coverArt) {
+              manualAddGameData.coverArt = details.cover_url;
+              renderManualModalCover(details.cover_url);
+              updateManualCoverBackBtnState();
+            }
+            if (details.genre && !manualAddGameData.genre) {
+              manualAddGameData.genre = details.genre;
+              if (manualInputGenre) manualInputGenre.value = details.genre;
+            }
+            if (details.publisher && !manualAddGameData.publisher) {
+              manualAddGameData.publisher = details.publisher;
+              if (manualInputPublisher) manualInputPublisher.value = details.publisher;
+            }
+            if (details.year && !manualAddGameData.year) {
+              manualAddGameData.year = details.year;
+              if (manualInputYear) manualInputYear.value = details.year;
+            }
+            if (details.description && !manualAddGameData.description) {
+              manualAddGameData.description = details.description;
+              if (manualInputDescription) manualInputDescription.value = details.description;
+            }
+          }
+        }).catch((err) => {
+          console.error('Fast metadata lookup failed:', err);
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to pick game file:', err);
+  }
+}
+
+if (manualInputGameFile) {
+  manualInputGameFile.addEventListener('click', () => {
+    if (!manualInputGameFile.value) {
+      handleManualGameFilePick();
+    }
+  });
+}
+
+// Manual Modal Navigation: Back button returns to modalWaysToAdd
+if (manualModalBackBtn) {
+  manualModalBackBtn.addEventListener('click', () => {
+    if (isFrameTransitioning) return;
+    showFrame(modalWaysToAdd);
+  });
+}
+
+// Manual Modal Done button: saves game to library and closes modal
+if (manualModalSaveBtn) {
+  manualModalSaveBtn.addEventListener('click', async () => {
+    if (isFrameTransitioning) return;
+    syncManualAddData();
+
+    // Use name or fallback to game file filename or 'Untitled Game'
+    let finalName = manualAddGameData.name;
+    if (!finalName && manualAddGameData.fullPath) {
+      const fileName = manualAddGameData.fullPath.split('/').pop().split('\\').pop();
+      finalName = fileName.replace(/\.[^/.]+$/, '').replace(/[_\-\.]+/g, ' ').trim();
+    }
+    if (!finalName) {
+      finalName = 'Untitled Game';
+    }
+
+    const newGame = {
+      name: finalName,
+      genre: manualAddGameData.genre || '',
+      publisher: manualAddGameData.publisher || '',
+      year: manualAddGameData.year || '',
+      launcher: manualAddGameData.launcher || 'macOS',
+      path: manualAddGameData.path || '',
+      fullPath: manualAddGameData.fullPath || '',
+      description: manualAddGameData.description || '',
+      coverArt: manualAddGameData.coverArt || null
+    };
+
+    gameLibrary.push(newGame);
+    await invokeBackend('save_library', { games: gameLibrary });
+    updateHomeScreenLibrary();
+    closeModal();
+  });
+}
+
+// --- Home Screen Shelf Management ---
 
 async function initLibrary() {
   try {
@@ -1181,6 +1949,49 @@ async function initLibrary() {
   updateHomeScreenLibrary();
 }
 
+// Clear all games button (for testing)
+const clearLibraryBtn = document.getElementById('clearLibraryBtn');
+if (clearLibraryBtn) {
+  let isClearing = false;
+  const executeClear = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (isClearing) return;
+    isClearing = true;
+
+    // Reset library in-memory
+    gameLibrary = [];
+    updateHomeScreenLibrary();
+
+    // Visual button feedback
+    const labelEl = clearLibraryBtn.querySelector('.clear-btn-label') || clearLibraryBtn.querySelector('span');
+    const originalText = labelEl ? labelEl.textContent : 'Clear All';
+    if (labelEl) labelEl.textContent = 'Cleared!';
+    clearLibraryBtn.style.background = 'rgba(235, 87, 87, 0.28)';
+    clearLibraryBtn.style.borderColor = 'rgba(235, 87, 87, 0.8)';
+    clearLibraryBtn.style.color = '#ff6b6b';
+
+    // Persist empty library to storage
+    try {
+      await invokeBackend('save_library', { games: [] });
+    } catch (err) {
+      console.error('Failed to clear library storage:', err);
+    }
+
+    setTimeout(() => {
+      if (labelEl) labelEl.textContent = originalText;
+      clearLibraryBtn.style.background = '';
+      clearLibraryBtn.style.borderColor = '';
+      clearLibraryBtn.style.color = '';
+      isClearing = false;
+    }, 1200);
+  };
+
+  clearLibraryBtn.addEventListener('click', executeClear);
+}
+
 function updateHomeScreenLibrary() {
   const countEl = document.querySelector('.stak-count');
   if (countEl) {
@@ -1188,17 +1999,13 @@ function updateHomeScreenLibrary() {
   }
 
   if (!gameLibrary || gameLibrary.length === 0) {
-    if (emptyState) emptyState.classList.remove('hidden');
     if (gameShelf) {
-      gameShelf.classList.add('hidden');
       gameShelf.innerHTML = '';
     }
     return;
   }
 
-  if (emptyState) emptyState.classList.add('hidden');
   if (gameShelf) {
-    gameShelf.classList.remove('hidden');
     renderGameShelf();
   }
 }
@@ -1209,6 +2016,7 @@ function renderGameShelf() {
 
   gameLibrary.forEach((game) => {
     const card = document.createElement('div');
+    card.__game = game;
     card.className = 'shelf-card';
     card.setAttribute('role', 'button');
     card.setAttribute('tabindex', '0');
@@ -1232,99 +2040,19 @@ function renderGameShelf() {
       card.appendChild(fallback);
     }
 
-    card.addEventListener('click', () => {
-      startLaunchGameFlow(game);
+    card.addEventListener('click', async () => {
+      try {
+        await invokeBackend('launch_game', { game });
+      } catch (err) {
+        console.error('Launch failed:', err);
+      }
+    });
+
+    card.addEventListener('contextmenu', (e) => {
+      openGameContextMenu(game, e);
     });
 
     gameShelf.appendChild(card);
-  });
-}
-
-// --- Game Launch Flow: Option 1 (Restak sits quietly in background) ---
-let isLaunching = false;
-
-function dismissLaunchCurtain() {
-  if (launchStatusContainer) {
-    launchStatusContainer.classList.add('hidden');
-  }
-  if (blackCurtain) {
-    blackCurtain.classList.remove('active');
-    setTimeout(() => {
-      blackCurtain.classList.add('hidden');
-    }, 400);
-  }
-  isLaunching = false;
-}
-
-async function startLaunchGameFlow(game) {
-  if (isLaunching) return;
-  isLaunching = true;
-
-  // 1. Populate status indicator
-  if (launchStatusTitle) launchStatusTitle.textContent = game.name;
-  if (launchStatusSubtitle) {
-    launchStatusSubtitle.textContent = game.launcher ? `Launching via ${game.launcher}...` : 'Starting game...';
-  }
-  if (launchStatusContainer) {
-    launchStatusContainer.classList.remove('hidden');
-  }
-
-  // 2. Smoothly fade Restak to solid black
-  if (blackCurtain) {
-    blackCurtain.classList.remove('hidden');
-    requestAnimationFrame(() => {
-      blackCurtain.classList.add('active');
-    });
-  }
-
-  // 3. Brief wait for black transition before spawning
-  await new Promise((resolve) => setTimeout(resolve, 300));
-
-  try {
-    // 4. Launch the game/emulator cleanly without stealing focus
-    await invokeBackend('launch_game', { game });
-  } catch (err) {
-    console.error('Launch failed:', err);
-    dismissLaunchCurtain();
-  }
-}
-
-// Allow user to dismiss curtain if they click on Restak or switch back to Restak
-if (blackCurtain) {
-  blackCurtain.addEventListener('click', () => {
-    dismissLaunchCurtain();
-  });
-}
-
-window.addEventListener('focus', () => {
-  // If user brings Restak back into focus (e.g. Cmd+Tab or clicking its window), reveal the shelf
-  if (!isLaunching) {
-    dismissLaunchCurtain();
-  }
-});
-
-// Listen for game events from Rust backend
-if (window.__TAURI__?.event?.listen) {
-  // Update status messages
-  window.__TAURI__.event.listen('game-status', (event) => {
-    const data = event.payload;
-    if (launchStatusSubtitle && data) {
-      launchStatusSubtitle.textContent = data.detail || data.status || '';
-    }
-  });
-
-  // Game started: hide the status text so Restak behind the game is pure solid black
-  window.__TAURI__.event.listen('game-started', () => {
-    if (launchStatusContainer) {
-      launchStatusContainer.classList.add('hidden');
-    }
-    // Allow window focus to dismiss now that game has launched
-    isLaunching = false;
-  });
-
-  // Game exited: restore Restak and smoothly fade curtain back out to the shelf
-  window.__TAURI__.event.listen('game-exited', () => {
-    dismissLaunchCurtain();
   });
 }
 
@@ -1383,6 +2111,10 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     handleToggleFullscreen();
   } else if (e.key === 'Escape') {
+    if (gameContextMenu && gameContextMenu.classList.contains('open')) {
+      closeGameContextMenu();
+      return;
+    }
     const isModalOpen = typeof addTitleModal !== 'undefined' && addTitleModal && addTitleModal.classList.contains('open');
     if (!isModalOpen && isBorderlessFsActive) {
       handleToggleFullscreen();

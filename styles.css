@@ -69,6 +69,7 @@
   --color-darkslategray-200: #383838;
   --color-darkslategray-100: #4A4A4A;
   --color-dimgray: #707070;
+  --color-dimgray-hover: #5E5E5E; /* Optical tonal step (~16% darkening) for balanced perceptual weight */
   --color-darkgray-100: #A7A7A7;
   --color-darkgray-200: #9E9E9E;
   --color-white: #FFFFFF;
@@ -92,6 +93,7 @@
   --gap-24: 24px;
   --gap-8: 8px;
   --width-16: 16px;
+  --width-20: 20px;
   --height-16: 16px;
   --height-40: 40px;
   --height-48: 48px;
@@ -117,6 +119,64 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
   background: linear-gradient(to bottom, var(--bg-start), var(--bg-end));
   background-attachment: fixed;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Global Selection & Drag Restrictions: unselectable by default */
+*, *::before, *::after {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Images & SVGs: completely immune to selection or ghost drag-and-drop */
+img, svg {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
+/* Exception: Text inputs & editable areas remain fully selectable */
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Exception: Descriptive & readable text spans allow text selection */
+.selectable-text,
+p,
+.edit-your-per,
+.this-may-take,
+.choose-how-you,
+.automatically-finds-existing {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Game cards and UI components are strictly unselectable under all click/drag interactions */
+.shelf-card,
+.shelf-card *,
+.content-placeholder-parent,
+.content-placeholder-parent *,
+.button-types,
+.button-types *,
+.nav-bar,
+.nav-bar *,
+.auto-add,
+.auto-add *,
+.emulation,
+.emulation *,
+.card-edit-btn,
+.card-edit-btn *,
+.edit-cover-action-btn,
+.edit-cover-action-btn *,
+.modal-close-btn,
+.modal-close-btn * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
 }
 
 body {
@@ -187,6 +247,58 @@ body {
   gap: calc(12px * var(--ui-scale, 1));
   pointer-events: auto;
   -webkit-app-region: no-drag;
+}
+
+.clear-library-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(6px * var(--ui-scale, 1));
+  height: calc(34px * var(--ui-scale, 1));
+  padding: 0 calc(12px * var(--ui-scale, 1));
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: calc(17px * var(--ui-scale, 1));
+  color: #a0a0a0;
+  font-family: var(--font-family);
+  font-size: calc(14px * var(--ui-scale, 1));
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  user-select: none;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s var(--spring-easing);
+  margin-right: calc(6px * var(--ui-scale, 1));
+}
+
+.clear-library-btn * {
+  pointer-events: none;
+}
+
+.clear-library-btn svg {
+  stroke: currentColor;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.clear-library-btn:hover {
+  background: rgba(235, 87, 87, 0.16);
+  border-color: rgba(235, 87, 87, 0.4);
+  color: #ff6b6b;
+  transform: none;
+}
+
+.clear-library-btn:hover svg {
+  opacity: 1;
+}
+
+.clear-library-btn:active {
+  transform: scale(0.96);
+  background: rgba(235, 87, 87, 0.24);
 }
 
 .system-time {
@@ -344,8 +456,8 @@ body {
   flex-shrink: 0;
 }
 
-/* Hover state applied ONLY to unselected buttons (excluding search button to prevent end grow pop) */
-.nav-btn:not(.nav-btn-search):not(.selected):not(.active):hover {
+/* Hover state applied to unselected buttons */
+.nav-btn:not(.selected):not(.active):not(.search-closing):hover {
   transform: scale(1.08);
 }
 
@@ -360,7 +472,7 @@ body {
   box-shadow: none;
 }
 
-/* --- Search Button Expanded State --- */
+/* --- Search Button Expanded & Closing State --- */
 .nav-btn-search {
   overflow: hidden;
   justify-content: flex-start;
@@ -368,12 +480,16 @@ body {
   gap: 13px;
 }
 
-.nav-bar.search-expanded .nav-btn-search {
-  width: 352px;
-  height: 54px;
+.nav-btn-search.search-closing,
+.nav-btn-search.search-closing:hover {
+  transform: none !important;
 }
 
+.nav-bar.search-expanded .nav-btn-search,
 .nav-bar.search-expanded .nav-btn-search:hover {
+  width: 352px;
+  height: 54px;
+  transform: none !important;
   filter: none;
 }
 
@@ -583,6 +699,14 @@ body {
   cursor: pointer;
   border-radius: 6px;
   flex-shrink: 0;
+}
+
+.plusbox.modal-close-btn svg path {
+  transition: fill 0.15s ease;
+}
+
+.plusbox.modal-close-btn:hover svg path {
+  fill: var(--color-dimgray-hover);
 }
 
 .plusbox-icon,
@@ -807,6 +931,7 @@ body {
 .hidden,
 .modal.hidden,
 .modal-edit-game.hidden,
+.modal-manual-add.hidden,
 .property-1ways-to-add.hidden,
 .property-1hover-back.hidden,
 .modal-searching.hidden,
@@ -1050,7 +1175,7 @@ body {
   padding: var(--padding-12) var(--padding-32);
   cursor: pointer;
   opacity: 0.2;
-  transition: opacity var(--spring-duration) var(--spring-easing), transform var(--spring-duration) var(--spring-easing), background-color 0.2s ease;
+  transition: opacity var(--spring-duration) var(--spring-easing), background-color 0.15s ease;
   user-select: none;
 }
 
@@ -1059,12 +1184,9 @@ body {
   cursor: pointer;
 }
 
-.button-types.active:hover {
-  transform: scale(1.02);
-}
-
-.button-types.active:active {
-  transform: scale(0.98);
+.button-types.active:hover,
+.button-types:not(:disabled):not(.disabled):hover {
+  background-color: var(--color-dimgray-hover);
 }
 
 .button-types:disabled,
@@ -1073,6 +1195,12 @@ body {
   cursor: not-allowed;
   pointer-events: none;
   transform: none !important;
+}
+
+/* Future-proof helper for any buttons styled with 707070 (excluding nav-bar) */
+button.btn-dimgray:not(:disabled):not(.disabled):hover,
+button[data-color="707070"]:not(:disabled):not(.disabled):hover {
+  background-color: var(--color-dimgray-hover);
 }
 
 .button-types-group {
@@ -1206,22 +1334,23 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.7;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  opacity: 0.85;
+  transition: opacity 0.15s ease;
   z-index: 5;
 }
 
 .card-edit-btn:hover {
   opacity: 1;
-  transform: scale(1.08);
+  transform: none;
 }
 
 .card-edit-btn svg path {
   transition: fill 0.15s ease;
+  fill: var(--color-dimgray);
 }
 
 .card-edit-btn:hover svg path {
-  fill: #707070;
+  fill: var(--color-dimgray-hover);
 }
 
 .content-placeholder-parent.selected {
@@ -1343,11 +1472,12 @@ body {
 }
 
 /* ============================================================
-   EDIT GAME DETAILS MODAL (modal-edit-game: 840x575)
+   EDIT GAME DETAILS & MANUALLY ADD TITLE MODALS (840x607)
    ============================================================ */
-.modal-edit-game {
+.modal-edit-game,
+.modal-manual-add {
   width: 840px;
-  height: 575px;
+  height: 607px;
   position: relative;
   box-shadow: 0px 0px 32px rgba(0, 0, 0, 0.1);
   border-radius: 24px;
@@ -1367,7 +1497,8 @@ body {
   margin: auto;
 }
 
-.modal-edit-game .heading-parent {
+.modal-edit-game .heading-parent,
+.modal-manual-add .heading-parent {
   align-self: stretch;
   display: flex;
   align-items: flex-start;
@@ -1376,15 +1507,17 @@ body {
   flex-shrink: 0;
 }
 
-.modal-edit-game .heading {
-  width: 752px;
+.modal-edit-game .heading,
+.modal-manual-add .heading {
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 10px;
 }
 
-.modal-edit-game .header {
+.modal-edit-game .header,
+.modal-manual-add .header {
   align-self: stretch;
   display: flex;
   align-items: center;
@@ -1398,7 +1531,22 @@ body {
   flex-shrink: 0;
 }
 
-.modal-edit-game .game-title {
+.modal-manual-add .file {
+  height: 24px;
+  width: 20px;
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-manual-add .file svg {
+  display: block;
+}
+
+.modal-edit-game .game-title,
+.modal-manual-add .manually-add-title {
   position: relative;
   letter-spacing: -0.02em;
   font-weight: 600;
@@ -1408,7 +1556,8 @@ body {
   max-width: 40rem;
 }
 
-.modal-edit-game .edit-your-per {
+.modal-edit-game .edit-your-per,
+.modal-manual-add .edit-your-per {
   align-self: stretch;
   height: 19px;
   position: relative;
@@ -1421,10 +1570,11 @@ body {
   line-height: normal;
 }
 
-/* Container: exactly 776 x 336 */
-.modal-edit-game .modal-inner {
+/* Container: exactly 776 x 368 */
+.modal-edit-game .modal-inner,
+.modal-manual-add .modal-inner {
   width: 776px;
-  height: 336px;
+  height: 368px;
   align-self: stretch;
   overflow: visible;
   display: flex;
@@ -1434,9 +1584,10 @@ body {
   flex-shrink: 0;
 }
 
-.modal-edit-game .content-placeholder-parent {
+.modal-edit-game .content-placeholder-parent,
+.modal-manual-add .content-placeholder-parent {
   width: 776px;
-  height: 336px;
+  height: 368px;
   display: flex;
   align-items: flex-start;
   gap: var(--gap-24);
@@ -1449,10 +1600,24 @@ body {
   box-sizing: border-box;
 }
 
+.modal-edit-game .edit-cover-col,
+.modal-manual-add .edit-cover-col {
+  width: 203px;
+  height: 368px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--gap-16);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
 .modal-edit-game .content-placeholder,
-.modal-edit-game .edit-cover-placeholder {
-  height: 336px;
-  width: 220px;
+.modal-edit-game .edit-cover-placeholder,
+.modal-manual-add .content-placeholder,
+.modal-manual-add .edit-cover-placeholder {
+  height: 304px;
+  width: 203px;
   border-radius: var(--br-8);
   background-color: var(--color-darkgray);
   overflow: hidden;
@@ -1464,24 +1629,16 @@ body {
 }
 
 .modal-edit-game .content-placeholder img,
-.modal-edit-game .edit-cover-placeholder img {
+.modal-edit-game .edit-cover-placeholder img,
+.modal-manual-add .content-placeholder img,
+.modal-manual-add .edit-cover-placeholder img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.modal-edit-game .frame-parent {
-  width: 532px;
-  height: 336px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--gap-24);
-  flex-shrink: 0;
-  box-sizing: border-box;
-}
-
-.modal-edit-game .frame-group {
+.modal-edit-game .edit-cover-btn-row,
+.modal-manual-add .edit-cover-btn-row {
   align-self: stretch;
   width: 100%;
   height: 48px;
@@ -1491,7 +1648,58 @@ body {
   flex-shrink: 0;
 }
 
-.modal-edit-game .autofilled-game-title-wrapper {
+.modal-edit-game .edit-cover-action-btn,
+.modal-manual-add .edit-cover-action-btn {
+  height: 48px;
+  flex: 1;
+  border-radius: var(--br-8);
+  background-color: var(--color-gainsboro);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background-color 0.15s ease;
+}
+
+.modal-edit-game .edit-cover-action-btn:hover,
+.modal-manual-add .edit-cover-action-btn:hover {
+  background-color: #DADADA;
+}
+
+.modal-edit-game .edit-cover-action-btn svg,
+.modal-manual-add .edit-cover-action-btn svg {
+  display: block;
+}
+
+.modal-edit-game .frame-parent,
+.modal-manual-add .frame-parent {
+  width: 549px;
+  height: 368px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--gap-16);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.modal-edit-game .frame-group,
+.modal-manual-add .frame-group {
+  align-self: stretch;
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: var(--gap-16);
+  flex-shrink: 0;
+}
+
+.modal-edit-game .autofilled-game-title-wrapper,
+.modal-manual-add .autofilled-game-title-wrapper {
   height: 48px;
   flex: 1;
   border-radius: var(--br-8);
@@ -1504,7 +1712,8 @@ body {
   flex-shrink: 0;
 }
 
-.modal-edit-game .autofilled-game-title {
+.modal-edit-game .autofilled-game-title,
+.modal-manual-add .autofilled-game-title {
   position: relative;
   letter-spacing: -0.02em;
   line-height: var(--lh-24);
@@ -1514,7 +1723,8 @@ body {
   color: var(--color-silver);
 }
 
-.modal-edit-game .autofilled-targeted-launcher-wrapper {
+.modal-edit-game .autofilled-targeted-launcher-wrapper,
+.modal-manual-add .autofilled-targeted-launcher-wrapper {
   align-self: stretch;
   width: 100%;
   height: 48px;
@@ -1528,7 +1738,10 @@ body {
   box-sizing: border-box;
 }
 
-.modal-edit-game .tags-separated-by-comma-wrapper {
+.modal-edit-game .tags-separated-by-comma-wrapper,
+.modal-manual-add .tags-separated-by-comma-wrapper,
+.modal-edit-game .game-file-wrapper,
+.modal-manual-add .game-file-wrapper {
   align-self: stretch;
   width: 100%;
   height: 48px;
@@ -1544,7 +1757,8 @@ body {
   box-sizing: border-box;
 }
 
-.modal-edit-game .stak-location-parent {
+.modal-edit-game .stak-location-parent,
+.modal-manual-add .stak-location-parent {
   align-self: stretch;
   width: 100%;
   height: 48px;
@@ -1562,7 +1776,8 @@ body {
   user-select: none;
 }
 
-.modal-edit-game .chevron {
+.modal-edit-game .chevron,
+.modal-manual-add .chevron {
   height: 10px;
   width: 16px;
   position: relative;
@@ -1572,7 +1787,8 @@ body {
   justify-content: center;
 }
 
-.modal-edit-game .button-types-parent {
+.modal-edit-game .button-types-parent,
+.modal-manual-add .button-types-parent {
   align-self: stretch;
   height: 53px;
   display: flex;
@@ -1583,7 +1799,8 @@ body {
   flex-shrink: 0;
 }
 
-.modal-edit-game .button-types {
+.modal-edit-game .button-types,
+.modal-manual-add .button-types {
   height: 53px;
   border-radius: var(--br-16);
   background-color: var(--color-dimgray);
@@ -1597,15 +1814,18 @@ body {
   font-family: var(--font-inter-display);
   box-sizing: border-box;
   flex-shrink: 0;
+  transition: opacity var(--spring-duration) var(--spring-easing), background-color 0.15s ease;
 }
 
-.modal-edit-game .button-types .game-title {
+.modal-edit-game .button-types .game-title,
+.modal-manual-add .button-types .game-title {
   font-size: var(--fs-24);
   line-height: normal;
   letter-spacing: -0.02em;
 }
 
-.modal-edit-game .button-types-wrapper {
+.modal-edit-game .button-types-wrapper,
+.modal-manual-add .button-types-wrapper {
   width: 458px;
   display: flex;
   align-items: center;
@@ -1749,11 +1969,10 @@ body {
   user-select: none;
 }
 
-/* Figma Hover Effect (Node 1726:427) */
+/* Shelf Card Hover Effect: 8% scale grow (matching buttons), no glow */
 .shelf-card:hover {
-  transform: scale(1.06);
-  filter: brightness(1.15);
-  box-shadow: 0 0 24px 2px rgba(255, 255, 255, 0.32);
+  transform: scale(1.08);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.25);
   z-index: 10;
 }
 
@@ -1792,72 +2011,100 @@ body {
   line-height: 1.2;
 }
 
-/* --- Seamless Black Curtain for Game Launch Background --- */
-.black-curtain {
+/* ============================================================
+   GAME RIGHT-CLICK FLOATING CONTEXT MENU
+   ============================================================ */
+
+.context-menu-backdrop {
   position: fixed;
-  inset: -100px;
-  z-index: 999999;
-  background: #000000;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.4s ease;
-  will-change: opacity;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 590;
+  background: transparent;
+  display: none;
+}
+
+.context-menu-backdrop.open {
+  display: block;
+}
+
+.game-context-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 600;
+  width: 286px;
+  height: 216px;
+  box-shadow: 0px 0px 32px rgba(0, 0, 0, 0.1);
+  border-radius: 24px;
+  background-color: #C9C9C9;
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 16px;
+  box-sizing: border-box;
+  gap: 32px;
+  text-align: left;
+}
+
+.game-context-menu.open {
+  display: flex;
+}
+
+.game-context-menu .selections-parent {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.game-context-menu .selections {
+  width: 254px;
+  height: 48px;
+  border-radius: 16px;
+  background-color: #E2E2E2;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  box-sizing: border-box;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.game-context-menu .selections:hover {
+  background-color: #DADADA;
+}
+
+.game-context-menu .selections:active {
+  background-color: #D8D8D8;
+}
+
+.game-context-menu .union-icon {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
-.black-curtain.active {
-  opacity: 1;
-  pointer-events: auto;
+.game-context-menu .union-icon svg {
+  display: block;
 }
 
-.launch-status-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  user-select: none;
-  transition: opacity 0.3s ease;
-}
-
-.launch-status-container.hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.launch-status-spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid rgba(255, 255, 255, 0.15);
-  border-top-color: #FFFFFF;
-  border-radius: 50%;
-  animation: launchSpin 0.9s linear infinite;
-}
-
-@keyframes launchSpin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.launch-status-title {
-  font-family: var(--font-inter-display);
-  font-size: 24px;
+.game-context-menu .edit-details {
+  flex: 1;
+  position: relative;
+  font-family: var(--font-family);
   font-weight: 600;
-  color: #FFFFFF;
-  letter-spacing: -0.01em;
-  text-align: center;
+  font-size: 18px;
+  line-height: 24px;
+  letter-spacing: -0.02em;
+  color: #4A4A4A;
+  white-space: nowrap;
 }
-
-.launch-status-subtitle {
-  font-family: var(--font-inter-display);
-  font-size: 15px;
-  font-weight: 500;
-  color: #8C8C8C;
-  letter-spacing: 0.01em;
-  text-align: center;
-}
-
-
 
