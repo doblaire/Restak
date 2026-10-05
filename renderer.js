@@ -394,13 +394,6 @@ async function invokeBackend(command, args = {}) {
   if (invoke) {
     return await invoke(command, args);
   }
-  if (window.restak) {
-    if (command === 'scan_for_games' && window.restak.scanForGames) return await window.restak.scanForGames();
-    if (command === 'load_library' && window.restak.loadLibrary) return await window.restak.loadLibrary();
-    if (command === 'save_library' && window.restak.saveLibrary) return await window.restak.saveLibrary(args.games);
-    if (command === 'pick_launcher' && window.restak.pickLauncher) return await window.restak.pickLauncher();
-    if (command === 'launch_game' && window.restak.launchGame) return await window.restak.launchGame(args.game);
-  }
   return null;
 }
 
@@ -1157,12 +1150,7 @@ if (autoScanCard) {
 
     try {
       // 2. Call the scanner in parallel with a 5-second minimum timer (5 x 1000ms cycles)
-      const invoke = window.__TAURI__?.core?.invoke || window.__TAURI__?.invoke;
-      const scanPromise = invoke
-        ? invoke('scan_for_games')
-        : (window.restak && window.restak.scanForGames
-            ? window.restak.scanForGames()
-            : Promise.resolve([]));
+      const scanPromise = invokeBackend('scan_for_games');
       const timerPromise = new Promise((resolve) => setTimeout(resolve, 5000));
 
       const [games] = await Promise.all([scanPromise, timerPromise]);
