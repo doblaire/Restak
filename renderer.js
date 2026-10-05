@@ -1391,106 +1391,129 @@ if (editCoverFileInput) {
   });
 }
 
+// ============================================================
+// SHARED COVER + DETAILS HELPERS
+// Used by BOTH the "Edit Game" screen and the "Manually Add" screen.
+// Before, each screen had its own copy of this logic.
+// ============================================================
+
+// Moves `game` to the next cover in `candidates` that differs from the current one.
+// Remembers the old cover so the Back button can return to it.
+// Returns the new cover URL, or null if there was nothing different to switch to.
+function advanceToNextCover(game, candidates) {
+  if (!candidates || candidates.length === 0) return null;
+  const currentArt = game.coverArt;
+  let nextArt = null;
+
+  for (let i = 0; i < candidates.length; i++) {
+    game._coverIndex = ((game._coverIndex ?? -1) + 1) % candidates.length;
+    const cand = candidates[game._coverIndex];
+    if (cand !== currentArt) {
+      nextArt = cand;
+      break;
+    }
+  }
+
+  if (!nextArt || nextArt === currentArt) return null;
+
+  if (!game._coverHistory) game._coverHistory = [];
+  if (currentArt) game._coverHistory.push(currentArt);
+  game.coverArt = nextArt;
+  return nextArt;
+}
+
+// Steps `game` back to its previous cover. Returns that cover, or null if there is no history.
+function goBackToPreviousCover(game) {
+  if (!game || !game._coverHistory || game._coverHistory.length === 0) return null;
+  const prevCover = game._coverHistory.pop();
+  game.coverArt = prevCover;
+  if (game._coverList) {
+    const idx = game._coverList.indexOf(prevCover);
+    if (idx !== -1) game._coverIndex = idx;
+  }
+  return prevCover;
+}
+
+// Fills in genre/publisher/year/description ONLY where the user hasn't already got a value.
+// `inputs` is the set of text boxes on whichever screen is open.
+function fillMissingDetails(game, details, inputs) {
+  ['genre', 'publisher', 'year', 'description'].forEach((field) => {
+    if (details[field] && !game[field]) {
+      game[field] = details[field];
+      if (inputs[field]) inputs[field].value = details[field];
+    }
+  });
+}
+
+// What the "refetch cover" button does on either screen:
+// 1. If we already downloaded the list of covers for this title, just show the next one (no network).
+// 2. Otherwise ask the backend for covers + details, then show the next cover.
+// `onCoverChanged` is called with the new cover so the screen can redraw it.
+async function refetchCoverFor(game, title, inputs, onCoverChanged) {
+  if (!game || !title) return;
+
+  if (game._coverListTitle === title && game._coverList && game._coverList.length > 1) {
+    const next = advanceToNextCover(game, game._coverList);
+    if (next) onCoverChanged(next);
+    return;
+  }
+
+  try {
+    const details = await invokeBackend('lookup_game_info', { title });
+    if (!details) return;
+
+    const candidates = (details.all_covers && details.all_covers.length > 0)
+      ? details.all_covers
+      : (details.cover_url ? [details.cover_url] : []);
+
+    if (candidates.length > 0) {
+      game._coverList = candidates;
+      game._coverListTitle = title;
+      const currentIdx = candidates.indexOf(game.coverArt);
+      game._coverIndex = currentIdx !== -1 ? currentIdx : 0;
+      const next = advanceToNextCover(game, candidates);
+      if (next) onCoverChanged(next);
+    }
+
+    fillMissingDetails(game, details, inputs);
+  } catch (err) {
+    console.error('Failed to refetch game details:', err);
+  }
+}
+
+// --- Edit Game screen: wire buttons to the shared helpers ---
+const editDetailInputs = {
+  genre: editInputGenre,
+  publisher: editInputPublisher,
+  year: editInputYear,
+  description: editInputDescription,
+};
+
+function onEditCoverChanged(cover) {
+  renderEditModalCover(cover);
+  updateCoverBackBtnState();
+  updateCardInResults(activeEditingGame);
+  autoSaveEditingGame();
+}
+
 if (editCoverRefetchBtn) {
   editCoverRefetchBtn.addEventListener('click', async () => {
     if (!activeEditingGame) return;
-    const title = editInputTitle?.value?.trim() || activeEditingGame.name;
-    if (!title) return;
-
-    const cycleCovers = (candidates) => {
-      if (!candidates || candidates.length === 0) return false;
-      const currentArt = activeEditingGame.coverArt;
-      let nextArt = null;
-
-      for (let i = 0; i < candidates.length; i++) {
-        activeEditingGame._coverIndex = ((activeEditingGame._coverIndex ?? -1) + 1) % candidates.length;
-        const cand = candidates[activeEditingGame._coverIndex];
-        if (cand !== currentArt) {
-          nextArt = cand;
-          break;
-        }
-      }
-
-      if (!nextArt && candidates[0] !== currentArt) {
-        nextArt = candidates[0];
-      }
-
-      if (nextArt && nextArt !== currentArt) {
-        if (!activeEditingGame._coverHistory) activeEditingGame._coverHistory = [];
-        if (currentArt) {
-          activeEditingGame._coverHistory.push(currentArt);
-        }
-        activeEditingGame.coverArt = nextArt;
-        renderEditModalCover(nextArt);
-        updateCoverBackBtnState();
-        updateCardInResults(activeEditingGame);
-        autoSaveEditingGame();
-        return true;
-      }
-      return false;
-    };
-
-    // If candidate covers for this title are already loaded in memory, cycle immediately
-    if (activeEditingGame._coverListTitle === title && activeEditingGame._coverList && activeEditingGame._coverList.length > 1) {
-      cycleCovers(activeEditingGame._coverList);
-      return;
-    }
-
-    try {
-      const details = await invokeBackend('lookup_game_info', { title });
-      if (details) {
-        const candidates = (details.all_covers && details.all_covers.length > 0)
-          ? details.all_covers
-          : (details.cover_url ? [details.cover_url] : []);
-
-        if (candidates.length > 0) {
-          activeEditingGame._coverList = candidates;
-          activeEditingGame._coverListTitle = title;
-          const currentIdx = candidates.indexOf(activeEditingGame.coverArt);
-          activeEditingGame._coverIndex = currentIdx !== -1 ? currentIdx : 0;
-          cycleCovers(candidates);
-        }
-
-        if (details.genre && !activeEditingGame.genre) {
-          activeEditingGame.genre = details.genre;
-          if (editInputGenre) editInputGenre.value = details.genre;
-        }
-        if (details.publisher && !activeEditingGame.publisher) {
-          activeEditingGame.publisher = details.publisher;
-          if (editInputPublisher) editInputPublisher.value = details.publisher;
-        }
-        if (details.year && !activeEditingGame.year) {
-          activeEditingGame.year = details.year;
-          if (editInputYear) editInputYear.value = details.year;
-        }
-        if (details.description && !activeEditingGame.description) {
-          activeEditingGame.description = details.description;
-          if (editInputDescription) editInputDescription.value = details.description;
-        }
-        updateCardInResults(activeEditingGame);
-        autoSaveEditingGame();
-      }
-    } catch (err) {
-      console.error('Failed to refetch game details:', err);
+    const game = activeEditingGame;
+    const title = editInputTitle?.value?.trim() || game.name;
+    await refetchCoverFor(game, title, editDetailInputs, onEditCoverChanged);
+    // If the user closed the screen while we were waiting, don't touch anything
+    if (activeEditingGame === game) {
+      updateCardInResults(game);
+      autoSaveEditingGame();
     }
   });
 }
 
 if (editCoverBackBtn) {
   editCoverBackBtn.addEventListener('click', () => {
-    if (!activeEditingGame || !activeEditingGame._coverHistory || activeEditingGame._coverHistory.length === 0) return;
-    const prevCover = activeEditingGame._coverHistory.pop();
-    activeEditingGame.coverArt = prevCover;
-    if (activeEditingGame._coverList) {
-      const idx = activeEditingGame._coverList.indexOf(prevCover);
-      if (idx !== -1) {
-        activeEditingGame._coverIndex = idx;
-      }
-    }
-    renderEditModalCover(prevCover);
-    updateCoverBackBtnState();
-    updateCardInResults(activeEditingGame);
-    autoSaveEditingGame();
+    const prev = goBackToPreviousCover(activeEditingGame);
+    if (prev) onEditCoverChanged(prev);
   });
 }
 
@@ -1699,100 +1722,30 @@ if (manualCoverFileInput) {
   });
 }
 
-// Manual Cover Refetch
+// --- Manually Add screen: wire buttons to the same shared helpers ---
+const manualDetailInputs = {
+  genre: manualInputGenre,
+  publisher: manualInputPublisher,
+  year: manualInputYear,
+  description: manualInputDescription,
+};
+
+function onManualCoverChanged(cover) {
+  renderManualModalCover(cover);
+  updateManualCoverBackBtnState();
+}
+
 if (manualCoverRefetchBtn) {
   manualCoverRefetchBtn.addEventListener('click', async () => {
     const title = manualInputTitle?.value?.trim() || manualAddGameData.name;
-    if (!title) return;
-
-    const cycleCovers = (candidates) => {
-      if (!candidates || candidates.length === 0) return false;
-      const currentArt = manualAddGameData.coverArt;
-      let nextArt = null;
-
-      for (let i = 0; i < candidates.length; i++) {
-        manualAddGameData._coverIndex = ((manualAddGameData._coverIndex ?? -1) + 1) % candidates.length;
-        const cand = candidates[manualAddGameData._coverIndex];
-        if (cand !== currentArt) {
-          nextArt = cand;
-          break;
-        }
-      }
-
-      if (!nextArt && candidates[0] !== currentArt) {
-        nextArt = candidates[0];
-      }
-
-      if (nextArt && nextArt !== currentArt) {
-        if (!manualAddGameData._coverHistory) manualAddGameData._coverHistory = [];
-        if (currentArt) {
-          manualAddGameData._coverHistory.push(currentArt);
-        }
-        manualAddGameData.coverArt = nextArt;
-        renderManualModalCover(nextArt);
-        updateManualCoverBackBtnState();
-        return true;
-      }
-      return false;
-    };
-
-    if (manualAddGameData._coverListTitle === title && manualAddGameData._coverList && manualAddGameData._coverList.length > 1) {
-      cycleCovers(manualAddGameData._coverList);
-      return;
-    }
-
-    try {
-      const details = await invokeBackend('lookup_game_info', { title });
-      if (details) {
-        const candidates = (details.all_covers && details.all_covers.length > 0)
-          ? details.all_covers
-          : (details.cover_url ? [details.cover_url] : []);
-
-        if (candidates.length > 0) {
-          manualAddGameData._coverList = candidates;
-          manualAddGameData._coverListTitle = title;
-          const currentIdx = candidates.indexOf(manualAddGameData.coverArt);
-          manualAddGameData._coverIndex = currentIdx !== -1 ? currentIdx : 0;
-          cycleCovers(candidates);
-        }
-
-        if (details.genre && !manualAddGameData.genre) {
-          manualAddGameData.genre = details.genre;
-          if (manualInputGenre) manualInputGenre.value = details.genre;
-        }
-        if (details.publisher && !manualAddGameData.publisher) {
-          manualAddGameData.publisher = details.publisher;
-          if (manualInputPublisher) manualInputPublisher.value = details.publisher;
-        }
-        if (details.year && !manualAddGameData.year) {
-          manualAddGameData.year = details.year;
-          if (manualInputYear) manualInputYear.value = details.year;
-        }
-        if (details.description && !manualAddGameData.description) {
-          manualAddGameData.description = details.description;
-          if (manualInputDescription) manualInputDescription.value = details.description;
-        }
-      }
-    } catch (err) {
-      console.error('Failed to refetch manual game details:', err);
-    }
+    await refetchCoverFor(manualAddGameData, title, manualDetailInputs, onManualCoverChanged);
   });
 }
 
-// Manual Cover Revert
 if (manualCoverBackBtn) {
   manualCoverBackBtn.addEventListener('click', () => {
-    if (!manualAddGameData._coverHistory || manualAddGameData._coverHistory.length === 0) return;
-    const prevCover = manualAddGameData._coverHistory.pop();
-    manualAddGameData.coverArt = prevCover;
-    if (manualAddGameData._coverList) {
-      const idx = manualAddGameData._coverList.indexOf(prevCover);
-      if (idx !== -1) {
-        manualAddGameData._coverIndex = idx;
-      }
-    }
-    renderManualModalCover(prevCover);
-    updateManualCoverBackBtnState();
+    const prev = goBackToPreviousCover(manualAddGameData);
+    if (prev) onManualCoverChanged(prev);
   });
 }
 
