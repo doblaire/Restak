@@ -2139,17 +2139,60 @@ function renderGameShelf() {
 }
 
 /**
- * Live search filter and sort algorithm.
+ * Normalizes text for search matching:
+ * - Converts to lowercase.
+ * - Removes quotes and apostrophes (e.g. "Link's" -> "links").
+ * - Replaces punctuation (hyphens, periods, colons, underscores, etc.) with spaces
+ *   so "Chibi-Robo" -> "chibi robo" and "Smash Bros." -> "smash bros".
+ * - Optionally preserves trailing space if requested (for queries like "Super Mario ").
  * 
- * - Matching is case-insensitive and based on the start of each game title (prefix match).
- * - Leading whitespace is trimmed, but internal and trailing spaces are preserved
- *   (e.g., "S" matches "Sonic", "Super Mario " matches "Super Mario World" but not "Superman").
- * - Matching games move to the front of the shelf, sorted alphabetically from A to Z.
- * - Non-matching games remain in the list in their original order, placed after matches.
- * - Designed as a standalone, reusable function separate from the UI for future extensions (fuzzy/contains).
+ * @param {string} str
+ * @param {boolean} [preserveTrailing=false]
+ * @returns {string}
+ */
+function normalizeSearchText(str, preserveTrailing = false) {
+  if (!str) return '';
+  let s = String(str).toLowerCase();
+  // Remove apostrophes, quotes, backticks
+  s = s.replace(/['"`’“”]/g, '');
+  // Replace punctuation characters with spaces
+  s = s.replace(/[.\-_:;,!?()[\]{}/\\&+=]/g, ' ');
+  s = s.replace(/^\s+/, '');
+  if (preserveTrailing) {
+    const hasTrailing = /\s$/.test(s);
+    s = s.replace(/\s+/g, ' ');
+    if (hasTrailing && !s.endsWith(' ')) s += ' ';
+  } else {
+    s = s.replace(/\s+/g, ' ').trim();
+  }
+  return s;
+}
+
+/**
+ * Live search filter and sort algorithm with multi-tier ranking.
  * 
- * @param {Array<Object>} games - Original array of game objects.
- * @param {string} query - Current search query.
+ * Tier 1 (Highest Priority):
+ * - Titles that begin with the full query (case-insensitive & punctuation-insensitive prefix match).
+ * - Sorted alphabetically from A to Z.
+ * - Example: A title literally starting with "Robo" (e.g. "Robo", "RoboCop") appears before "Chibi-Robo".
+ * 
+ * Tier 2 (Word / Word-Start & Position-Insensitive Match):
+ * - Titles where EVERY query word appears somewhere in the title (either as a whole word or word-start),
+ *   regardless of the order or location of those words.
+ * - Sorted alphabetically from A to Z.
+ * - Example: Query "Melee" matches "Super Smash Bros. Melee"; query "Robo" matches "Chibi-Robo".
+ *   Query "Bros Smash" matches "Super Smash Bros. Melee" (word-order insensitive).
+ * 
+ * Tier 3 (Substring Fallback Match):
+ * - Titles where every query word appears as a substring within title words.
+ * - Sorted alphabetically from A to Z.
+ * 
+ * Non-Matching Games:
+ * - Placed after all matches in their original sequence.
+ * - Dimmed to 24% opacity with pointer interactions disabled.
+ * 
+ * @param {Array<Object>} games - Array of game objects.
+ * @param {string} query - Live search query.
  * @returns {{ orderedGames: Array<Object>, matchSet: Set<Object>, isSearching: boolean }}
  */
 function filterAndSortGames(games, query) {
@@ -2157,10 +2200,10 @@ function filterAndSortGames(games, query) {
     return { orderedGames: [], matchSet: new Set(), isSearching: false };
   }
 
-  // Trim leading whitespace only; preserve internal and trailing spaces
-  const trimmed = (query != null ? String(query) : '').replace(/^\s+/, '');
+  // Trim leading whitespace but preserve internal and trailing spaces
+  const rawTrimmed = (query != null ? String(query) : '').replace(/^\s+/, '');
 
-  if (!trimmed) {
+  if (!rawTrimmed) {
     return {
       orderedGames: [...games],
       matchSet: new Set(games),
@@ -2168,35 +2211,75 @@ function filterAndSortGames(games, query) {
     };
   }
 
-  const lowerQuery = trimmed.toLowerCase();
-  const matches = [];
+  // Normalized query for prefix check (preserves trailing space if typed by user, e.g. "Super Mario ")
+  const normPrefixQuery = normalizeSearchText(rawTrimmed, true);
+  // Normalized query words for word-order and position-insensitive matching
+  const queryWords = normalizeSearchText(rawTrimmed, false).split(' ').filter(Boolean);
+
+  if (queryWords.length === 0) {
+    return {
+      orderedGames: [...games],
+      matchSet: new Set(games),
+      isSearching: false
+    };
+  }
+
+  const tier1Matches = [];
+  const tier2Matches = [];
+  const tier3Matches = [];
   const nonMatches = [];
 
   for (const game of games) {
     const rawName = game && game.name != null ? String(game.name) : '';
-    const title = rawName.trim().toLowerCase();
+    const normTitle = normalizeSearchText(rawName, false);
+    const titleWords = normTitle.split(' ').filter(Boolean);
 
-    if (title.startsWith(lowerQuery)) {
-      matches.push(game);
+    // Tier 1: Title begins with the full query
+    if (normTitle.startsWith(normPrefixQuery)) {
+      tier1Matches.push(game);
+      continue;
+    }
+
+    // Tier 2: Word-order & position insensitive: every query word matches a whole word or word-start
+    const allWordStarts = queryWords.every(qw =>
+      titleWords.some(tw => tw.startsWith(qw))
+    );
+
+    if (allWordStarts) {
+      tier2Matches.push(game);
+      continue;
+    }
+
+    // Tier 3: Substring fallback: every query word appears somewhere in the title words
+    const allSubstrings = queryWords.every(qw =>
+      titleWords.some(tw => tw.includes(qw))
+    );
+
+    if (allSubstrings) {
+      tier3Matches.push(game);
     } else {
       nonMatches.push(game);
     }
   }
 
-  // Extension point: In the future, fallback to 'contains' or fuzzy matching
-  // when prefix matches return empty, e.g.:
-  // if (matches.length === 0) { ... fallback matching logic ... }
+  // Locale-aware alphabetical sorting helper
+  const sortAlphabetical = (list) => {
+    list.sort((a, b) => {
+      const nameA = a && a.name != null ? String(a.name).trim() : '';
+      const nameB = b && b.name != null ? String(b.name).trim() : '';
+      return nameA.localeCompare(nameB, undefined, { sensitivity: 'base', numeric: true });
+    });
+  };
 
-  // Sort matching games alphabetically from A to Z
-  matches.sort((a, b) => {
-    const nameA = a && a.name != null ? String(a.name).trim() : '';
-    const nameB = b && b.name != null ? String(b.name).trim() : '';
-    return nameA.localeCompare(nameB, undefined, { sensitivity: 'base', numeric: true });
-  });
+  sortAlphabetical(tier1Matches);
+  sortAlphabetical(tier2Matches);
+  sortAlphabetical(tier3Matches);
+
+  const allMatches = [...tier1Matches, ...tier2Matches, ...tier3Matches];
 
   return {
-    orderedGames: [...matches, ...nonMatches],
-    matchSet: new Set(matches),
+    orderedGames: [...allMatches, ...nonMatches],
+    matchSet: new Set(allMatches),
     isSearching: true
   };
 }
