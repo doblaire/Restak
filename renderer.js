@@ -2325,11 +2325,6 @@ function applyGameSearch(query, animate = true) {
 
   const { orderedGames, matchSet, isSearching } = filterAndSortGames(gameLibrary, query);
 
-  // If searching and user has scrolled down, smoothly scroll to top so the front spot is visible
-  if (isSearching && gameShelf.scrollTop > 0) {
-    gameShelf.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
   // Map each game object to its DOM card element
   const cardMap = new Map();
   cards.forEach(card => {
@@ -2356,11 +2351,12 @@ function applyGameSearch(query, animate = true) {
     return;
   }
 
-  // 1. FIRST: Record live visual bounding rectangle of all cards (including in-flight transforms!)
+  // 1. FIRST: Record live on-screen visual bounding rectangle of all cards before altering DOM.
+  // getBoundingClientRect() captures the active mid-flight interpolated position of any running animation!
   const firstRects = new Map();
   cards.forEach(card => {
     firstRects.set(card, card.getBoundingClientRect());
-    // Cancel any active animation so lastRect measures the true target grid geometry
+    // Cancel running animation so step 3 measures the true un-transformed target grid geometry
     if (card._flipAnim) {
       card._flipAnim.cancel();
       card._flipAnim = null;
@@ -2376,8 +2372,9 @@ function applyGameSearch(query, animate = true) {
     }
   });
 
-  // 3. LAST & PLAY: Measure new positions and run smooth GPU animation
-  orderedGames.forEach((game, newIndex) => {
+  // 3. LAST & PLAY: Measure new layout positions and immediately retarget toward new destination.
+  // Zero stagger/delay so all cards keep pace with fast typing/backspacing without queuing or lag.
+  orderedGames.forEach((game) => {
     const card = cardMap.get(game);
     if (!card) return;
 
@@ -2389,10 +2386,6 @@ function applyGameSearch(query, animate = true) {
     const dy = Math.round(firstRect.top - lastRect.top);
 
     if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-      // Stagger delay based on TARGET position:
-      // Target slot 0 (front spot) starts immediately (0ms delay)!
-      // Remaining cards stagger gently by 12ms, capped at 180ms total.
-      const delayMs = Math.min(newIndex * 12, 180);
       const isMatching = matchSet.has(game);
 
       // Elevate z-index during animation so moving cards (especially matching cards heading to front)
@@ -2403,18 +2396,15 @@ function applyGameSearch(query, animate = true) {
         { transform: `translate3d(${dx}px, ${dy}px, 0)` },
         { transform: 'translate3d(0px, 0px, 0)' }
       ], {
-        duration: 550,
-        delay: delayMs,
-        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-        fill: 'both'
+        duration: 250,
+        delay: 0,
+        easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+        fill: 'none'
       });
 
       card._flipAnim.onfinish = () => {
         card.style.zIndex = '';
-        if (card._flipAnim) {
-          card._flipAnim.cancel();
-          card._flipAnim = null;
-        }
+        card._flipAnim = null;
       };
     } else {
       card.style.zIndex = '';
