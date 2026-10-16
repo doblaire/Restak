@@ -2287,19 +2287,27 @@ function filterAndSortGames(games, query) {
 let searchFlipCleanupTimer = null;
 
 /**
- * Updates the game shelf in response to live search queries using FLIP layout animations.
+ * Updates the game shelf in response to live search queries using fluid, Apple-like FLIP animations.
  * 
- * - Matching cards move to the front and stay at 100% opacity.
- * - Non-matching cards move after matches, dim to 24% opacity with a smooth 250ms ease curve,
- *   and have pointer interactions disabled.
- * - Card reordering is animated with a FLIP (First-Last-Invert-Play) transition so cards glide smoothly.
- * - When query is cleared, restores default order and 100% opacity to all cards.
+ * - Decelerating curve: cubic-bezier(0.22, 1, 0.36, 1) for a soft start and long, graceful settle.
+ * - Reorder slide animation: 550ms.
+ * - Opacity fade for dimmed / restored cards: 450ms.
+ * - Subtle organic stagger: ~14ms per card, capped at 200ms total.
+ * - Fully interruptible: if the user types mid-transition, cards smoothly redirect from their
+ *   current visual coordinates without snapping or restarting.
+ * - Hardware accelerated: animates strictly transform and opacity on GPU layers.
+ * - Accessibility: respects prefers-reduced-motion by disabling slide animations and using a simple opacity fade.
  * 
  * @param {string} query - The search query.
  * @param {boolean} [animate=true] - Whether to perform the FLIP animation.
  */
 function applyGameSearch(query, animate = true) {
   if (!gameShelf) return;
+
+  // Respect user accessibility setting for reduced motion
+  const prefersReducedMotion = Boolean(
+    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
 
   // If user is in Staks view, switch back to All Games view so results are visible
   if (gameShelf.classList.contains('hidden')) {
@@ -2325,12 +2333,15 @@ function applyGameSearch(query, animate = true) {
     }
   });
 
-  if (!animate) {
+  // If reduced motion is requested or animation disabled, reorder instantly without sliding
+  if (!animate || prefersReducedMotion) {
+    clearTimeout(searchFlipCleanupTimer);
     orderedGames.forEach(game => {
       const card = cardMap.get(game);
       if (card) {
         card.style.transform = '';
         card.style.transition = '';
+        card.style.transitionDelay = '';
         card.classList.toggle('is-dimmed', isSearching && !matchSet.has(game));
         gameShelf.appendChild(card);
       }
@@ -2338,7 +2349,10 @@ function applyGameSearch(query, animate = true) {
     return;
   }
 
-  // 1. FIRST: Record current visual bounding rectangle of all cards
+  // Cancel any pending cleanup from previous strokes so inline styles aren't prematurely removed
+  clearTimeout(searchFlipCleanupTimer);
+
+  // 1. FIRST: Measure live visual coordinates of all cards (including in-flight transforms!)
   const firstRects = new Map();
   cards.forEach(card => {
     firstRects.set(card, card.getBoundingClientRect());
@@ -2353,9 +2367,10 @@ function applyGameSearch(query, animate = true) {
     }
   });
 
-  // 3. LAST: Remove temporary transforms to measure true grid positions
+  // 3. LAST: Momentarily clear transition and transform to measure true grid target positions
   cards.forEach(card => {
     card.style.transition = 'none';
+    card.style.transitionDelay = '0s';
     card.style.transform = 'none';
   });
 
@@ -2371,36 +2386,39 @@ function applyGameSearch(query, animate = true) {
     if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
       moves.push({ card, dx, dy });
     } else {
-      // Restore default transition for stationary cards so opacity transitions smoothly
+      // Card didn't move: restore CSS transition so opacity fades smoothly without delay
       card.style.transition = '';
+      card.style.transitionDelay = '';
       card.style.transform = '';
     }
   });
 
-  // 4. INVERT: Set inverse transform so cards visually stay at their 'First' position
+  // 4. INVERT: Place moving cards back at their exact visual 'First' position
   moves.forEach(({ card, dx, dy }) => {
     card.style.transform = `translate(${dx}px, ${dy}px)`;
   });
 
-  // Force reflow
+  // Force reflow to flush inverted transform before playing
   void gameShelf.offsetHeight;
 
-  // 5. PLAY: Animate moving cards smoothly to target position
+  // 5. PLAY: Animate smoothly along decelerating curve with capped stagger delay
   requestAnimationFrame(() => {
-    moves.forEach(({ card }) => {
-      card.style.transition = 'transform 0.32278s var(--spring-easing), opacity 250ms ease';
+    moves.forEach(({ card }, index) => {
+      // 14ms per card stagger, capped at 200ms total for organic, fluid shift
+      const delayMs = Math.min(index * 14, 200);
+      card.style.transition = `transform 550ms cubic-bezier(0.22, 1, 0.36, 1) ${delayMs}ms, opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)`;
       card.style.transform = '';
     });
   });
 
-  // Clean up inline styles once FLIP transition finishes
-  clearTimeout(searchFlipCleanupTimer);
+  // 6. CLEANUP: Once all staggered transitions have settled (550ms slide + max 200ms stagger + 50ms buffer = 800ms)
   searchFlipCleanupTimer = setTimeout(() => {
     cards.forEach(card => {
       card.style.transition = '';
       card.style.transform = '';
+      card.style.transitionDelay = '';
     });
-  }, 350);
+  }, 800);
 }
 
 // Expose filter & search functions globally for modular reuse / testing

@@ -1969,7 +1969,8 @@ button[data-color="707070"]:not(:disabled):not(.disabled):hover {
   background: #919191;
   cursor: pointer;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-  transition: transform 0.32278s var(--spring-easing), filter 0.32278s, box-shadow 0.32278s, opacity 250ms ease;
+  transition: transform 0.32278s var(--spring-easing), filter 0.32278s, box-shadow 0.32278s, opacity 450ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
   user-select: none;
 }
 
@@ -1990,6 +1991,18 @@ button[data-color="707070"]:not(:disabled):not(.disabled):hover {
 .shelf-card.is-dimmed:hover {
   transform: none !important;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Accessibility: Fallback for users with prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .shelf-card {
+    transition: opacity 200ms ease !important;
+    transform: none !important;
+    will-change: opacity !important;
+  }
+  .shelf-card:not(.is-dimmed):hover {
+    transform: none !important;
+  }
 }
 
 .shelf-card-art {
