@@ -998,15 +998,7 @@ body {
 }
 
 .scan-flow-gradient {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 776px;
-  height: 284px;
-  background: linear-gradient(181deg, rgba(214, 214, 214, 0.00) 50%, #C9C9C9 99.5%);
-  pointer-events: none;
-  z-index: 10;
-  transition: opacity 0.25s ease-out;
+  display: none !important;
 }
 
 .modal-searching .frame-parent {
@@ -1038,7 +1030,7 @@ body {
   display: none;
 }
 
-.frame-child {
+.modal-searching .frame-child {
   align-self: stretch;
   height: 10.125rem;
   border-radius: var(--br-16);
@@ -1052,7 +1044,7 @@ body {
   opacity: 0.5;
 }
 
-.frame-item {
+.modal-searching .frame-item {
   align-self: stretch;
   height: 10.125rem;
   border-radius: var(--br-16);
@@ -1066,7 +1058,7 @@ body {
   opacity: 0.25;
 }
 
-.frame-inner {
+.modal-searching .frame-inner {
   align-self: stretch;
   height: 10.125rem;
   border-radius: var(--br-16);
@@ -1509,7 +1501,7 @@ button[data-color="707070"]:not(:disabled):not(.disabled):hover {
 
 .modal-edit-game .heading,
 .modal-manual-add .heading {
-  width: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -1934,6 +1926,9 @@ button[data-color="707070"]:not(:disabled):not(.disabled):hover {
 
 /* --- Populated Games Shelf (7 cards per row, stacking) --- */
 .game-shelf {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   display: grid;
@@ -1946,6 +1941,12 @@ button[data-color="707070"]:not(:disabled):not(.disabled):hover {
   scrollbar-width: none;
   -ms-overflow-style: none;
   align-content: flex-start;
+  box-sizing: border-box;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity var(--spring-duration) var(--spring-easing),
+              visibility var(--spring-duration) var(--spring-easing);
 }
 
 .game-shelf::-webkit-scrollbar {
@@ -1953,7 +1954,10 @@ button[data-color="707070"]:not(:disabled):not(.disabled):hover {
 }
 
 .game-shelf.hidden {
-  display: none !important;
+  display: grid !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .shelf-card {
@@ -2011,10 +2015,249 @@ button[data-color="707070"]:not(:disabled):not(.disabled):hover {
   line-height: 1.2;
 }
 
-/* ============================================================
-   GAME RIGHT-CLICK FLOATING CONTEXT MENU
-   ============================================================ */
+/* --- Undo/Redo Buttons (Figma specs: matching cover buttons, 48px height, 57px width, 16px gap, 42px above Genre) --- */
+.undo-redo-parent {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-16);
+  flex-shrink: 0;
+}
 
+.undo-redo-btn {
+  height: 48px;
+  width: 57px;
+  border-radius: var(--br-8);
+  background-color: var(--color-gainsboro);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 0;
+  box-sizing: border-box;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, opacity 0.2s ease;
+}
+
+.undo-redo-btn:hover {
+  background-color: #DADADA;
+}
+
+.undo-redo-btn svg {
+  display: block;
+}
+
+/* --- Staks Collections Page (Figma 1956:609) --- */
+:root {
+  --height-346: 346px;
+  --width-231: 231px;
+  --shadow-drop: 0px 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.staks-shelf {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(40px * var(--ui-scale, 1));
+  padding: calc(40px * var(--ui-scale, 1));
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  box-sizing: border-box;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity var(--spring-duration) var(--spring-easing),
+              visibility var(--spring-duration) var(--spring-easing);
+}
+
+.staks-shelf::-webkit-scrollbar {
+  display: none;
+}
+
+.staks-shelf.hidden {
+  display: flex !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.staks-shelf .frame-parent {
+  width: calc(974px * var(--ui-scale, 1));
+  height: calc(209px * var(--ui-scale, 1));
+  position: relative;
+  border-radius: calc(24px * var(--ui-scale, 1));
+  background-color: var(--color-gainsboro);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  padding: calc(40px * var(--ui-scale, 1));
+  box-sizing: border-box;
+  isolation: isolate;
+  gap: calc(10px * var(--ui-scale, 1));
+  text-align: left;
+  font-size: calc(40px * var(--ui-scale, 1));
+  color: var(--color-darkslategray);
+  font-family: var(--font-inter-display);
+  cursor: pointer;
+  transition: transform var(--spring-duration) var(--spring-easing), box-shadow 0.2s ease;
+}
+
+.staks-shelf .frame-parent:hover {
+  transform: scale(1.012);
+  box-shadow: 0px 10px 36px rgba(0, 0, 0, 0.12);
+}
+
+.staks-shelf .all-games-parent {
+  align-self: stretch;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: calc(16px * var(--ui-scale, 1));
+  z-index: 0;
+  flex-shrink: 0;
+  height: 100%;
+}
+
+.staks-shelf .all-games {
+  position: relative;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.staks-shelf .all-games-parent > .all-games {
+  font-size: calc(40px * var(--ui-scale, 1));
+  color: var(--color-darkslategray);
+}
+
+.staks-shelf .frame-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(8px * var(--ui-scale, 1));
+  font-size: calc(24px * var(--ui-scale, 1));
+  color: var(--color-darkgray);
+}
+
+.staks-shelf .titles-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.staks-shelf .titles-wrapper .all-games {
+  font-size: calc(24px * var(--ui-scale, 1));
+  color: var(--color-darkgray);
+  line-height: 1.2;
+}
+
+/* 4-Card Stack Frame (Figma: 14.438rem width, 346px height, offsets 0 / 7.25rem / 14.438rem / 21.688rem) */
+.staks-shelf .stak-cards-stack {
+  position: absolute;
+  top: calc(2.438rem * var(--ui-scale, 1));
+  left: calc(26.938rem * var(--ui-scale, 1));
+  height: calc(var(--height-346) * var(--ui-scale, 1));
+  width: calc(36.126rem * var(--ui-scale, 1));
+  pointer-events: none;
+}
+
+.staks-shelf .stak-cards-stack .frame-child,
+.staks-shelf .stak-cards-stack .frame-item,
+.staks-shelf .stak-cards-stack .frame-inner,
+.staks-shelf .stak-cards-stack .frame-icon,
+.staks-shelf .frame-parent > .frame-child,
+.staks-shelf .frame-parent > .frame-item,
+.staks-shelf .frame-parent > .frame-inner,
+.staks-shelf .frame-parent > .frame-icon {
+  position: absolute;
+  top: 0;
+  width: calc(14.438rem * var(--ui-scale, 1));
+  height: calc(var(--height-346) * var(--ui-scale, 1));
+  box-shadow: var(--shadow-drop);
+  border-radius: var(--br-16);
+  object-fit: cover;
+  background-color: #919191;
+  opacity: 1 !important;
+  transition: transform 0.3s var(--spring-easing);
+  margin: 0 !important;
+}
+
+.staks-shelf .frame-parent:hover .stak-cards-stack .frame-child,
+.staks-shelf .frame-parent:hover .stak-cards-stack .frame-item,
+.staks-shelf .frame-parent:hover .stak-cards-stack .frame-inner,
+.staks-shelf .frame-parent:hover .stak-cards-stack .frame-icon,
+.staks-shelf .frame-parent:hover > .frame-child,
+.staks-shelf .frame-parent:hover > .frame-item,
+.staks-shelf .frame-parent:hover > .frame-inner,
+.staks-shelf .frame-parent:hover > .frame-icon {
+  transform: translateY(-8px);
+}
+
+.staks-shelf .frame-child {
+  left: calc(21.688rem * var(--ui-scale, 1));
+  z-index: 1;
+}
+
+.staks-shelf .frame-item {
+  left: calc(14.438rem * var(--ui-scale, 1));
+  z-index: 2;
+}
+
+.staks-shelf .frame-inner {
+  left: calc(7.25rem * var(--ui-scale, 1));
+  z-index: 3;
+}
+
+.staks-shelf .frame-icon {
+  left: 0rem;
+  z-index: 4;
+}
+
+/* Staks Add Block (Bottom rectangle with centered plus icon) */
+.staks-shelf .stak-add-block {
+  width: calc(974px * var(--ui-scale, 1));
+  height: calc(209px * var(--ui-scale, 1));
+  border-radius: calc(24px * var(--ui-scale, 1));
+  background-color: var(--color-gainsboro);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: transform var(--spring-duration) var(--spring-easing), background-color 0.15s ease, box-shadow 0.2s ease;
+}
+
+.staks-shelf .stak-add-block:hover {
+  transform: scale(1.012);
+  background-color: #DADADA;
+  box-shadow: 0px 10px 36px rgba(0, 0, 0, 0.12);
+}
+
+.staks-shelf .stak-add-block svg {
+  width: calc(56px * var(--ui-scale, 1));
+  height: calc(56px * var(--ui-scale, 1));
+  display: block;
+  transition: transform 0.2s ease;
+}
+
+.staks-shelf .stak-add-block:hover svg {
+  transform: scale(1.08);
+}
+
+/* --- Game Right-Click Context Menu (Figma 1871-385) --- */
 .context-menu-backdrop {
   position: fixed;
   inset: 0;
@@ -2034,77 +2277,113 @@ button[data-color="707070"]:not(:disabled):not(.disabled):hover {
   top: 0;
   left: 0;
   z-index: 600;
-  width: 286px;
-  height: 216px;
+  width: calc(286px * var(--ui-scale, 1));
+  height: calc(272px * var(--ui-scale, 1));
   box-shadow: 0px 0px 32px rgba(0, 0, 0, 0.1);
-  border-radius: 24px;
-  background-color: #C9C9C9;
+  border-radius: calc(24px * var(--ui-scale, 1));
+  background-color: var(--color-silver);
   overflow: hidden;
-  display: none;
+  display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 16px;
+  padding: calc(16px * var(--ui-scale, 1));
   box-sizing: border-box;
-  gap: 32px;
+  gap: calc(32px * var(--ui-scale, 1));
   text-align: left;
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transform: scale(0.95);
+  transition: transform var(--spring-duration) var(--spring-easing),
+              opacity var(--spring-duration) var(--spring-easing),
+              visibility var(--spring-duration) var(--spring-easing);
 }
 
 .game-context-menu.open {
-  display: flex;
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  transform: scale(1);
 }
 
 .game-context-menu .selections-parent {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: calc(8px * var(--ui-scale, 1));
   width: 100%;
 }
 
-.game-context-menu .selections {
-  width: 254px;
-  height: 48px;
-  border-radius: 16px;
-  background-color: #E2E2E2;
+.game-context-menu .selections,
+.game-context-menu .selections2,
+.game-context-menu .selections4 {
+  width: calc(254px * var(--ui-scale, 1));
+  height: calc(48px * var(--ui-scale, 1));
+  border-radius: calc(16px * var(--ui-scale, 1));
+  background-color: var(--color-gainsboro);
   display: flex;
+  flex-direction: row;
   align-items: center;
-  padding: 0 12px;
+  justify-content: flex-start;
+  padding: calc(12px * var(--ui-scale, 1));
+  gap: calc(10px * var(--ui-scale, 1));
   box-sizing: border-box;
-  gap: 12px;
   cursor: pointer;
-  user-select: none;
-  -webkit-user-select: none;
   transition: background-color 0.15s ease;
-}
-
-.game-context-menu .selections:hover {
-  background-color: #DADADA;
-}
-
-.game-context-menu .selections:active {
-  background-color: #D8D8D8;
-}
-
-.game-context-menu .union-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
 }
 
-.game-context-menu .union-icon svg {
+.game-context-menu .selections:hover,
+.game-context-menu .selections2:hover,
+.game-context-menu .selections4:hover {
+  background-color: #DADADA;
+}
+
+.game-context-menu .selections:active,
+.game-context-menu .selections2:active,
+.game-context-menu .selections4:active {
+  background-color: #CECECE;
+}
+
+.game-context-menu svg {
   display: block;
+  flex: none;
+  max-width: none;
+  max-height: none;
+  position: static;
+  overflow: visible;
+}
+
+.game-context-menu .union-icon {
+  width: calc(20px * var(--ui-scale, 1));
+  height: calc(20px * var(--ui-scale, 1));
+}
+
+.game-context-menu .union-icon2 {
+  width: calc(20px * var(--ui-scale, 1));
+  height: calc(17px * var(--ui-scale, 1));
+}
+
+.game-context-menu .staks-icon {
+  width: calc(20px * var(--ui-scale, 1));
+  height: calc(20px * var(--ui-scale, 1));
+}
+
+.game-context-menu .close-icon {
+  width: calc(17.38px * var(--ui-scale, 1));
+  height: calc(17.38px * var(--ui-scale, 1));
 }
 
 .game-context-menu .edit-details {
   flex: 1;
   position: relative;
-  font-family: var(--font-family);
-  font-weight: 600;
-  font-size: 18px;
-  line-height: 24px;
+  font-family: var(--font-inter-display);
+  font-size: calc(18px * var(--ui-scale, 1));
   letter-spacing: -0.02em;
+  line-height: calc(24px * var(--ui-scale, 1));
+  font-weight: 600;
   color: #4A4A4A;
   white-space: nowrap;
 }
-

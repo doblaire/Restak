@@ -242,8 +242,27 @@ document.addEventListener('mousemove', (e) => {
   }
 });
 
-// --- Button Selection Handling ---
+// --- Button Selection & View Handling ---
 let activeLocationBtn = document.querySelector('.nav-btn.selected') || document.querySelector('.nav-btn[data-action="home"]');
+
+function switchMainView(action) {
+  const stakTitleEl = document.querySelector('.stak-title');
+  const gameShelfEl = document.getElementById('gameShelf');
+  const staksShelfEl = document.getElementById('staksShelf');
+
+  if (action === 'staks') {
+    if (stakTitleEl) stakTitleEl.textContent = 'Staks';
+    if (gameShelfEl) gameShelfEl.classList.add('hidden');
+    if (staksShelfEl) {
+      renderStaksView();
+      staksShelfEl.classList.remove('hidden');
+    }
+  } else {
+    if (stakTitleEl) stakTitleEl.textContent = 'All Games';
+    if (gameShelfEl) gameShelfEl.classList.remove('hidden');
+    if (staksShelfEl) staksShelfEl.classList.add('hidden');
+  }
+}
 
 document.querySelectorAll('.nav-btn').forEach((btn) => {
   btn.addEventListener('click', (e) => {
@@ -256,6 +275,7 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     activeLocationBtn = btn;
+    switchMainView(action);
   });
 });
 
@@ -595,6 +615,9 @@ function closeModal() {
     frameTransitionTimer = null;
   }
   isFrameTransitioning = false;
+  if (typeof editOpenedFromShelf !== 'undefined' && editOpenedFromShelf) {
+    persistShelfEdit();
+  }
   activeEditingGame = null;
   if (addTitleModal) {
     addTitleModal.style.pointerEvents = '';
@@ -608,6 +631,8 @@ function closeModal() {
     if (targetLocation) {
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('selected'));
       targetLocation.classList.add('selected');
+      const action = targetLocation.getAttribute('data-action');
+      switchMainView(action);
     }
 
     setTimeout(() => {
@@ -639,81 +664,147 @@ if (addNavBtn && addTitleModal) {
   // Clicking outside the modal does not close it (user must use close button or explicit navigation)
 }
 
-// --- Game Floating Context Menu ---
+// --- Game Right-Click Menu (Figma 1871-385) ---
 const gameContextMenu = document.getElementById('modalGameContext');
 const gameContextMenuBackdrop = document.getElementById('gameContextMenuBackdrop');
+const GCM_WIDTH = 286;
+const GCM_HEIGHT = 272;
+const GCM_EDGE = 12;
 let contextMenuTargetGame = null;
+var editOpenedFromShelf = false;
 
-function openGameContextMenu(game, e) {
-  if (e) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
+function openGameContextMenu(game, clientX, clientY) {
+  if (!gameContextMenu || !game) return;
   contextMenuTargetGame = game;
-  if (!gameContextMenu) return;
 
-  // Position at cursor coordinates
-  const clientX = e ? e.clientX : window.innerWidth / 2;
-  const clientY = e ? e.clientY : window.innerHeight / 2;
+  const scaledW = GCM_WIDTH * canvasScale;
+  const scaledH = GCM_HEIGHT * canvasScale;
 
-  // Measure or estimate menu dimensions
-  const menuWidth = gameContextMenu.offsetWidth || 260;
-  const menuHeight = gameContextMenu.offsetHeight || 160;
-
-  // Ensure menu stays within visible viewport
-  let posX = clientX;
-  let posY = clientY;
+  let x = clientX;
+  let y = clientY;
   let originX = 'left';
   let originY = 'top';
 
-  if (posX + menuWidth > window.innerWidth - 12) {
-    posX = Math.max(12, posX - menuWidth);
+  if (x + scaledW > window.innerWidth - GCM_EDGE) {
+    x = Math.max(GCM_EDGE, x - scaledW);
     originX = 'right';
   }
-  if (posY + menuHeight > window.innerHeight - 12) {
-    posY = Math.max(12, posY - menuHeight);
+  if (y + scaledH > window.innerHeight - GCM_EDGE) {
+    y = Math.max(GCM_EDGE, y - scaledH);
     originY = 'bottom';
   }
 
-  gameContextMenu.style.left = `${posX}px`;
-  gameContextMenu.style.top = `${posY}px`;
+  gameContextMenu.classList.remove('open');
+  gameContextMenu.style.left = `${x}px`;
+  gameContextMenu.style.top = `${y}px`;
   gameContextMenu.style.transformOrigin = `${originX} ${originY}`;
+  void gameContextMenu.offsetWidth;
 
   gameContextMenu.classList.add('open');
-  if (gameContextMenuBackdrop) {
-    gameContextMenuBackdrop.classList.add('open');
-  }
+  if (gameContextMenuBackdrop) gameContextMenuBackdrop.classList.add('open');
 }
 
 function closeGameContextMenu() {
-  if (gameContextMenu) {
-    gameContextMenu.classList.remove('open');
-  }
-  if (gameContextMenuBackdrop) {
-    gameContextMenuBackdrop.classList.remove('open');
-  }
+  if (gameContextMenu) gameContextMenu.classList.remove('open');
+  if (gameContextMenuBackdrop) gameContextMenuBackdrop.classList.remove('open');
   contextMenuTargetGame = null;
 }
 
-if (gameContextMenuBackdrop) {
-  gameContextMenuBackdrop.addEventListener('mousedown', closeGameContextMenu);
+function isGameContextMenuOpen() {
+  return !!(gameContextMenu && gameContextMenu.classList.contains('open'));
 }
 
-// Close on window resize, scroll, or click outside
-window.addEventListener('resize', closeGameContextMenu);
-window.addEventListener('wheel', closeGameContextMenu, { passive: true });
-document.addEventListener('mousedown', (e) => {
-  if (gameContextMenu && !gameContextMenu.contains(e.target) && e.target !== gameContextMenuBackdrop) {
-    closeGameContextMenu();
+function openEditFromShelf(game) {
+  if (!addTitleModal) return;
+  const currentSelected = document.querySelector('.nav-btn.selected');
+  if (currentSelected && currentSelected.getAttribute('data-action') !== 'add') {
+    activeLocationBtn = currentSelected;
   }
-});
+  document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('selected'));
+  if (addNavBtn) addNavBtn.classList.add('selected');
 
-// Global context menu listener: suppress native browser menu and trigger custom menu for cards
+  editOpenedFromShelf = true;
+  openEditGameModal(game);
+  addTitleModal.classList.add('open');
+}
+
+function persistShelfEdit() {
+  editOpenedFromShelf = false;
+  if (activeEditingGame) {
+    autoSaveEditingGame();
+  }
+  updateHomeScreenLibrary();
+  invokeBackend('save_library', { games: gameLibrary }).catch((err) => {
+    console.error('Failed to save library:', err);
+  });
+}
+
+function removeGameFromLibrary(game) {
+  const key = (g) => `${g.fullPath || g.path}:::${g.name}`;
+  const idx = gameLibrary.findIndex((g) => g === game || key(g) === key(game));
+  if (idx === -1) return;
+  gameLibrary.splice(idx, 1);
+  updateHomeScreenLibrary();
+  invokeBackend('save_library', { games: gameLibrary }).catch((err) => {
+    console.error('Failed to save library:', err);
+  });
+}
+
+if (gameContextMenu) {
+  gameContextMenu.querySelectorAll('[data-action]').forEach((item) => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const action = item.getAttribute('data-action');
+      const game = contextMenuTargetGame;
+      closeGameContextMenu();
+      if (!game) return;
+
+      if (action === 'edit') {
+        openEditFromShelf(game);
+      } else if (action === 'location') {
+        const loc = game.fullPath || game.path;
+        if (loc) {
+          invokeBackend('show_file_location', { path: loc }).catch((err) => {
+            console.error('Failed to show file location:', err);
+          });
+        }
+      } else if (action === 'move-stak') {
+        const staksBtn = document.querySelector('.nav-btn[data-action="staks"]');
+        if (staksBtn) staksBtn.click();
+      } else if (action === 'remove') {
+        removeGameFromLibrary(game);
+      }
+    });
+  });
+}
+
+if (gameContextMenuBackdrop) {
+  gameContextMenuBackdrop.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    closeGameContextMenu();
+  });
+}
+
+window.addEventListener('resize', closeGameContextMenu);
+window.addEventListener('wheel', () => {
+  if (isGameContextMenuOpen()) closeGameContextMenu();
+}, { passive: true });
+
+// Right-click: open on shelf cards, suppress native menu
 window.addEventListener('contextmenu', (e) => {
   e.preventDefault();
-  const card = e.target.closest('.shelf-card');
-  if (card && card.__game) {
-    openGameContextMenu(card.__game, e);
+  let target = e.target;
+
+  if (target === gameContextMenuBackdrop) {
+    gameContextMenuBackdrop.classList.remove('open');
+    target = document.elementFromPoint(e.clientX, e.clientY);
+  }
+  if (gameContextMenu && gameContextMenu.contains(target)) return;
+
+  const card = target && target.closest ? target.closest('.shelf-card') : null;
+  const modalOpen = addTitleModal && addTitleModal.classList.contains('open');
+  if (card && card.__game && !modalOpen) {
+    openGameContextMenu(card.__game, e.clientX, e.clientY);
   } else {
     closeGameContextMenu();
   }
@@ -740,7 +831,7 @@ document.addEventListener('selectstart', (e) => {
 // Global modal escape handler
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    if (gameContextMenu && gameContextMenu.classList.contains('open')) {
+    if (isGameContextMenuOpen()) {
       closeGameContextMenu();
       return;
     }
@@ -1344,6 +1435,10 @@ function openEditGameModal(game) {
   updateCoverBackBtnState();
 
   showFrame(modalEditGame);
+
+  editHistoryManager.history = [];
+  editHistoryManager.index = -1;
+  editHistoryManager.record(activeEditingGame);
 }
 
 // --- Cover Actions: Upload, Refetch, Revert ---
@@ -1529,20 +1624,28 @@ function updateCardInResults(game) {
   });
 }
 
-// Back button on Edit Game Modal directly saves and returns to scan results
+// Back button on Edit Game Modal directly saves and returns to scan results (or closes to shelf)
 if (editModalBackBtn) {
   editModalBackBtn.addEventListener('click', () => {
     if (isFrameTransitioning) return;
+    if (editOpenedFromShelf) {
+      closeModal();
+      return;
+    }
     autoSaveEditingGame();
     activeEditingGame = null;
     showFrame(modalScanFlow);
   });
 }
 
-// Save & Return button directly saves and returns to scan results
+// Save & Return button directly saves and returns to scan results (or closes to shelf)
 if (editModalSaveBtn) {
   editModalSaveBtn.addEventListener('click', () => {
     if (isFrameTransitioning) return;
+    if (editOpenedFromShelf) {
+      closeModal();
+      return;
+    }
     autoSaveEditingGame();
     activeEditingGame = null;
     showFrame(modalScanFlow);
@@ -1595,10 +1698,14 @@ async function handleEditGameFilePick() {
 }
 
 if (editInputGameFile) {
-  editInputGameFile.addEventListener('click', () => {
-    if (!editInputGameFile.value) {
-      handleEditGameFilePick();
-    }
+  editInputGameFile.addEventListener('click', (e) => {
+    e.stopPropagation();
+    handleEditGameFilePick();
+  });
+}
+if (editGameFileWrapper) {
+  editGameFileWrapper.addEventListener('click', () => {
+    handleEditGameFilePick();
   });
 }
 
@@ -1649,6 +1756,10 @@ function openManualAddModal() {
   updateManualCoverBackBtnState();
 
   showFrame(modalManualAdd);
+
+  manualHistoryManager.history = [];
+  manualHistoryManager.index = -1;
+  manualHistoryManager.record(manualAddGameData);
 }
 
 // Wire Manual Card in modalWaysToAdd
@@ -1826,10 +1937,14 @@ async function handleManualGameFilePick() {
 }
 
 if (manualInputGameFile) {
-  manualInputGameFile.addEventListener('click', () => {
-    if (!manualInputGameFile.value) {
-      handleManualGameFilePick();
-    }
+  manualInputGameFile.addEventListener('click', (e) => {
+    e.stopPropagation();
+    handleManualGameFilePick();
+  });
+}
+if (manualGameFileWrapper) {
+  manualGameFileWrapper.addEventListener('click', () => {
+    handleManualGameFilePick();
   });
 }
 
@@ -1943,11 +2058,20 @@ function updateHomeScreenLibrary() {
     if (gameShelf) {
       gameShelf.innerHTML = '';
     }
+    const staksShelfEl = document.getElementById('staksShelf');
+    if (staksShelfEl) {
+      renderStaksView();
+    }
     return;
   }
 
   if (gameShelf) {
     renderGameShelf();
+  }
+
+  const staksShelfEl = document.getElementById('staksShelf');
+  if (staksShelfEl && activeLocationBtn && activeLocationBtn.getAttribute('data-action') === 'staks') {
+    renderStaksView();
   }
 }
 
@@ -1989,12 +2113,87 @@ function renderGameShelf() {
       }
     });
 
-    card.addEventListener('contextmenu', (e) => {
-      openGameContextMenu(game, e);
-    });
-
     gameShelf.appendChild(card);
   });
+}
+
+function createStakElement(title, titlesCount, hoursCount, gamesList) {
+  const card = document.createElement('div');
+  card.className = 'frame-parent';
+  card.setAttribute('role', 'button');
+  card.setAttribute('tabindex', '0');
+  card.setAttribute('title', `Open ${title}`);
+
+  // Covers from this stak (up to 4 games)
+  const covers = gamesList ? gamesList.filter(g => g.coverArt).map(g => g.coverArt) : [];
+
+  // 4 cards in exact Figma DOM stacking order:
+  // frame-child: left 21.688rem (back-most, z-index 1) -> game 4
+  // frame-item:  left 14.438rem (z-index 2)            -> game 3
+  // frame-inner: left 7.25rem   (z-index 3)            -> game 2
+  // frame-icon:  left 0rem      (front-most, z-index 4)-> game 1
+  const renderCardSlot = (cls, coverSrc) => {
+    if (coverSrc) {
+      return `<img class="${cls}" src="${coverSrc}" alt="" />`;
+    }
+    return `<div class="${cls}"></div>`;
+  };
+
+  const cardsHtml = `
+    <div class="stak-cards-stack">
+      ${renderCardSlot('frame-child', covers[3])}
+      ${renderCardSlot('frame-item', covers[2])}
+      ${renderCardSlot('frame-inner', covers[1])}
+      ${renderCardSlot('frame-icon', covers[0])}
+    </div>
+  `;
+
+  card.innerHTML = `
+    <div class="all-games-parent">
+      <div class="all-games">${title}</div>
+      <div class="frame-group">
+        <div class="titles-wrapper">
+          <div class="all-games">${titlesCount} ${titlesCount === 1 ? 'Title' : 'Titles'}</div>
+        </div>
+        <div class="titles-wrapper">
+          <div class="all-games">${hoursCount} Hours</div>
+        </div>
+      </div>
+    </div>
+    ${cardsHtml}
+  `;
+
+  card.addEventListener('click', () => {
+    const homeBtn = document.querySelector('.nav-btn[data-action="home"]');
+    if (homeBtn) homeBtn.click();
+  });
+
+  return card;
+}
+
+function renderStaksView() {
+  const staksShelfEl = document.getElementById('staksShelf');
+  if (!staksShelfEl) return;
+  staksShelfEl.innerHTML = '';
+
+  const totalTitles = gameLibrary ? gameLibrary.length : 0;
+
+  // 1. "All Games" Stak
+  const allGamesStak = createStakElement('All Games', totalTitles, 0, gameLibrary);
+  staksShelfEl.appendChild(allGamesStak);
+
+  // 2. Bottom Add Block with centered plus icon (974x209)
+  const addBlock = document.createElement('div');
+  addBlock.className = 'stak-add-block';
+  addBlock.setAttribute('role', 'button');
+  addBlock.setAttribute('tabindex', '0');
+  addBlock.setAttribute('title', 'Add Stak');
+  addBlock.innerHTML = `
+    <svg height="56" width="56" fill="none" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
+      <path d="M56.009 30.0142C56.009 30.985 55.2213 31.7725 54.2505 31.7727L31.7729 31.7751L31.7729 54.2502C31.7729 55.221 30.9852 56.0085 30.0145 56.0087L25.9972 56.0087C25.0264 56.0089 24.2392 55.2233 24.2387 54.2527L24.2387 31.7751L1.75871 31.7727C0.787847 31.7726 0.000231456 30.9851 0.000231357 30.0142L0.000231749 25.9969C0.000462663 25.0262 0.787941 24.2385 1.75871 24.2385L24.2387 24.2385L24.2387 1.75844C24.2388 0.787581 25.0263 -3.40658e-05 25.9972 -3.40726e-05L30.0145 -3.39878e-05C30.9854 -3.39946e-05 31.7729 0.787533 31.7729 1.75844L31.7729 24.2409L54.2505 24.2385C55.2211 24.2386 56.0087 25.0264 56.009 25.9969L56.009 30.0142Z" fill="#707070"/>
+    </svg>
+  `;
+  staksShelfEl.appendChild(addBlock);
 }
 
 // --- Option A: Windowed / Borderless Fullscreen Support ---
@@ -2052,10 +2251,6 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     handleToggleFullscreen();
   } else if (e.key === 'Escape') {
-    if (gameContextMenu && gameContextMenu.classList.contains('open')) {
-      closeGameContextMenu();
-      return;
-    }
     const isModalOpen = typeof addTitleModal !== 'undefined' && addTitleModal && addTitleModal.classList.contains('open');
     if (!isModalOpen && isBorderlessFsActive) {
       handleToggleFullscreen();
@@ -2081,3 +2276,247 @@ initLibrary();
 
 
 
+
+
+// --- Real-time Auto-fill on Title Input ---
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+const handleAutoFill = debounce(async (game, titleInput, inputs, onCoverChanged) => {
+  const title = titleInput.value.trim();
+  if (!title || !game) return;
+  
+  // Skip if we already have this exact title's list
+  if (game._coverListTitle === title && game._coverList && game._coverList.length > 0) {
+    return;
+  }
+
+  // Gather elements for the fade animation
+  const isEditing = (game === activeEditingGame);
+  const coverEl = isEditing ? editModalCover : manualModalCover;
+  const elementsToFade = [
+    inputs.genre, 
+    inputs.publisher, 
+    inputs.year, 
+    inputs.description,
+    coverEl
+  ].filter(Boolean);
+
+  // Trigger fade out
+  elementsToFade.forEach(el => {
+    el.style.transition = 'opacity 0.3s ease';
+    el.style.opacity = '0'; // fade to 0 so they appear together
+  });
+
+  try {
+    const details = await invokeBackend('lookup_game_info', { title });
+    
+    // We delay the fade back in slightly so the fade-out has time to register visually
+    setTimeout(() => {
+      if (details) {
+        const candidates = (details.all_covers && details.all_covers.length > 0)
+          ? details.all_covers
+          : (details.cover_url ? [details.cover_url] : []);
+
+        if (candidates.length > 0) {
+          game._coverList = candidates;
+          game._coverListTitle = title;
+          
+          const currentArt = game.coverArt;
+          const nextArt = candidates[0];
+          
+          if (nextArt !== currentArt) {
+            if (!game._coverHistory) game._coverHistory = [];
+            if (currentArt) game._coverHistory.push(currentArt);
+            game.coverArt = nextArt;
+            game._coverIndex = 0;
+            onCoverChanged(nextArt);
+          }
+        }
+
+        // Aggressively overwrite fields to ensure changing the title updates existing data
+        ['genre', 'publisher', 'year', 'description'].forEach((field) => {
+          game[field] = details[field] || '';
+          if (inputs[field]) inputs[field].value = details[field] || '';
+        });
+        
+        // Auto-save the changes
+        if (isEditing) {
+            autoSaveEditingGame();
+        } else {
+            syncManualAddData();
+        }
+      }
+
+      // Trigger fade in simultaneously
+      elementsToFade.forEach(el => {
+        el.style.transition = 'opacity 0.4s var(--spring-easing, ease)';
+        el.style.opacity = '1';
+      });
+      
+      // Cleanup transition after animation completes
+      setTimeout(() => {
+        elementsToFade.forEach(el => {
+          el.style.transition = '';
+          el.style.opacity = '';
+        });
+      }, 400);
+
+    }, 300); // 300ms blink duration
+
+  } catch (err) {
+    console.error('Failed to auto-fill game details:', err);
+    // Recover opacity if failed
+    elementsToFade.forEach(el => {
+      el.style.transition = 'opacity 0.2s ease';
+      el.style.opacity = '1';
+    });
+  }
+}, 800);
+
+if (editInputTitle) {
+  editInputTitle.addEventListener('input', () => {
+    handleAutoFill(activeEditingGame, editInputTitle, editDetailInputs, onEditCoverChanged);
+  });
+}
+
+if (manualInputTitle) {
+  manualInputTitle.addEventListener('input', () => {
+    handleAutoFill(manualAddGameData, manualInputTitle, manualDetailInputs, onManualCoverChanged);
+  });
+}
+
+// --- Undo / Redo Implementation ---
+
+class HistoryManager {
+  constructor(updateUIFn) {
+    this.history = [];
+    this.index = -1;
+    this.updateUIFn = updateUIFn;
+    this.isApplying = false;
+  }
+
+  record(state) {
+    if (this.isApplying) return;
+    
+    // Deep clone the state
+    const clone = JSON.parse(JSON.stringify(state));
+    
+    // Check if the state is identical to current to prevent useless states
+    if (this.index >= 0) {
+      const current = this.history[this.index];
+      if (JSON.stringify(current) === JSON.stringify(clone)) return;
+    }
+
+    // Truncate redo history
+    if (this.index < this.history.length - 1) {
+      this.history = this.history.slice(0, this.index + 1);
+    }
+    
+    this.history.push(clone);
+    this.index++;
+    this.updateButtons();
+  }
+
+  undo(currentState) {
+    if (this.index > 0) {
+      this.index--;
+      this.applyState(currentState);
+    }
+  }
+
+  redo(currentState) {
+    if (this.index < this.history.length - 1) {
+      this.index++;
+      this.applyState(currentState);
+    }
+  }
+
+  applyState(currentState) {
+    this.isApplying = true;
+    const targetState = this.history[this.index];
+    Object.assign(currentState, JSON.parse(JSON.stringify(targetState)));
+    this.updateUIFn(currentState);
+    this.updateButtons();
+    setTimeout(() => { this.isApplying = false; }, 50);
+  }
+
+  updateButtons() {} // to be overridden
+}
+
+const editHistoryManager = new HistoryManager((state) => {
+  if (editInputTitle) editInputTitle.value = state.name || '';
+  if (editInputGenre) editInputGenre.value = state.genre || '';
+  if (editInputPublisher) editInputPublisher.value = state.publisher || '';
+  if (editInputYear) editInputYear.value = state.year || '';
+  if (editInputLauncher) editInputLauncher.value = state.launcher || '';
+  if (editInputGameFile) editInputGameFile.value = state.fullPath || state.path || '';
+  if (editInputDescription) editInputDescription.value = state.description || '';
+  if (typeof renderEditModalCover !== 'undefined') renderEditModalCover(state.coverArt);
+  if (typeof updateEditCoverBackBtnState !== 'undefined') updateEditCoverBackBtnState();
+});
+
+const manualHistoryManager = new HistoryManager((state) => {
+  if (manualInputTitle) manualInputTitle.value = state.name || '';
+  if (manualInputGenre) manualInputGenre.value = state.genre || '';
+  if (manualInputPublisher) manualInputPublisher.value = state.publisher || '';
+  if (manualInputYear) manualInputYear.value = state.year || '';
+  if (manualInputLauncher) manualInputLauncher.value = state.launcher || '';
+  if (manualInputGameFile) manualInputGameFile.value = state.fullPath || state.path || '';
+  if (manualInputDescription) manualInputDescription.value = state.description || '';
+  if (typeof renderManualModalCover !== 'undefined') renderManualModalCover(state.coverArt);
+  if (typeof updateManualCoverBackBtnState !== 'undefined') updateManualCoverBackBtnState();
+});
+
+const editUndoBtn = document.getElementById('editUndoBtn');
+const editRedoBtn = document.getElementById('editRedoBtn');
+const manualUndoBtn = document.getElementById('manualUndoBtn');
+const manualRedoBtn = document.getElementById('manualRedoBtn');
+
+editHistoryManager.updateButtons = () => {
+  if (editUndoBtn) {
+    editUndoBtn.style.opacity = editHistoryManager.index > 0 ? '1' : '0.5';
+    editUndoBtn.style.cursor = editHistoryManager.index > 0 ? 'pointer' : 'default';
+  }
+  if (editRedoBtn) {
+    editRedoBtn.style.opacity = editHistoryManager.index < editHistoryManager.history.length - 1 ? '1' : '0.5';
+    editRedoBtn.style.cursor = editHistoryManager.index < editHistoryManager.history.length - 1 ? 'pointer' : 'default';
+  }
+};
+
+manualHistoryManager.updateButtons = () => {
+  if (manualUndoBtn) {
+    manualUndoBtn.style.opacity = manualHistoryManager.index > 0 ? '1' : '0.5';
+    manualUndoBtn.style.cursor = manualHistoryManager.index > 0 ? 'pointer' : 'default';
+  }
+  if (manualRedoBtn) {
+    manualRedoBtn.style.opacity = manualHistoryManager.index < manualHistoryManager.history.length - 1 ? '1' : '0.5';
+    manualRedoBtn.style.cursor = manualHistoryManager.index < manualHistoryManager.history.length - 1 ? 'pointer' : 'default';
+  }
+};
+
+if (editUndoBtn) editUndoBtn.addEventListener('click', () => editHistoryManager.undo(activeEditingGame));
+if (editRedoBtn) editRedoBtn.addEventListener('click', () => editHistoryManager.redo(activeEditingGame));
+if (manualUndoBtn) manualUndoBtn.addEventListener('click', () => manualHistoryManager.undo(manualAddGameData));
+if (manualRedoBtn) manualRedoBtn.addEventListener('click', () => manualHistoryManager.redo(manualAddGameData));
+
+// Debounce recording for inputs so we don't save every keystroke
+const recordEditHistory = debounce(() => editHistoryManager.record(activeEditingGame), 400);
+const recordManualHistory = debounce(() => manualHistoryManager.record(manualAddGameData), 400);
+
+[editInputTitle, editInputGenre, editInputPublisher, editInputYear, editInputLauncher, editInputGameFile, editInputDescription].forEach((input) => {
+  if (input) input.addEventListener('input', recordEditHistory);
+});
+
+[manualInputTitle, manualInputGenre, manualInputPublisher, manualInputYear, manualInputLauncher, manualInputGameFile, manualInputDescription].forEach((input) => {
+  if (input) input.addEventListener('input', recordManualHistory);
+});

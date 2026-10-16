@@ -732,16 +732,5 @@ pub async fn scan_for_games() -> Vec<Game> {
         });
     }
 
-    futures_util_join_all(tasks).await
-}
-
-async fn futures_util_join_all<F>(futures: Vec<F>) -> Vec<F::Output>
-where
-    F: std::future::Future,
-{
-    let mut results = Vec::with_capacity(futures.len());
-    for f in futures {
-        results.push(f.await);
-    }
-    results
+    futures::future::join_all(tasks).await
 }

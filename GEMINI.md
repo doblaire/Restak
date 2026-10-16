@@ -102,3 +102,9 @@ npm run tauri build
 ```
 
 *When editing `index.html`, `styles.css`, or `renderer.js`, always run `npm run build:dist` to ensure embedded web assets in `dist/` are up to date before compiling Rust.*
+
+---
+
+## 6. Icon Assets & Source of Truth
+- **Strict Rule**: NEVER invent, generate, draw, or insert arbitrary placeholder SVG icons.
+- **Canonical Repository**: Always and exclusively pull from `icons/` (`auto.svg`, `back.svg`, `close.svg`, `collapse.svg`, `edit.svg`, `file.svg`, `folder.svg`, `home.svg`, `info.svg`, `nut.svg`, `plus box.svg`, `refetch.svg`, `search.svg`, `staks.svg`, `undo or redo.svg`, `upload.svg`) unless the user explicitly provides a new SVG or requests otherwise.

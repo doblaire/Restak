@@ -618,6 +618,32 @@ async fn launch_game(app: tauri::AppHandle, game: Game) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn show_file_location(path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let p = PathBuf::from(&path);
+        if p.exists() {
+            let _ = Command::new("open").arg("-R").arg(&path).spawn();
+        } else if let Some(parent) = p.parent() {
+            if parent.exists() {
+                let _ = Command::new("open").arg(parent).spawn();
+            }
+        }
+        Ok(())
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let _ = Command::new("explorer").arg(format!("/select,\"{}\"", path)).spawn();
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let _ = path;
+        Ok(())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -639,6 +665,7 @@ pub fn run() {
             pick_game_file,
             lookup_game_info,
             launch_game,
+            show_file_location,
             toggle_borderless_fullscreen,
             get_fullscreen_state
         ])

@@ -33,9 +33,10 @@
       </div>
     </header>
 
-    <!-- Main Content Area: Game Shelf -->
+    <!-- Main Content Area: Game Shelf & Staks View -->
     <main class="content">
       <div class="game-shelf" id="gameShelf"></div>
+      <div class="staks-shelf hidden" id="staksShelf"></div>
     </main>
 
     <!-- Nav Bar Tray (stays inside .app) -->
@@ -170,7 +171,6 @@
             <div class="frame-item" data-slot="1"></div>
             <div class="frame-inner" data-slot="2"></div>
           </div>
-          <div class="scan-flow-gradient" id="scanFlowGradient"></div>
         </div>
         <div class="button-types-parent">
           <button class="button-types disabled" id="scanFlowBackBtn" disabled>
@@ -200,6 +200,18 @@
               <div class="game-title" id="editModalHeaderTitle">Game Title</div>
             </div>
             <div class="edit-your-per">Edit your per game details. You can always change this later.</div>
+          </div>
+          <div class="undo-redo-parent">
+            <button type="button" class="undo-redo-btn" id="editUndoBtn" title="Undo" style="opacity: 0.5;">
+              <svg height="20" width="21" fill="none" viewBox="0 0 21 20" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9.88477 0.156176C9.62897 -0.070905 9.23722 -0.0475447 9.00977 0.207934L4.21777 5.59661C4.00913 5.83132 4.00949 6.18591 4.21777 6.42082L9.00977 11.8105C9.23732 12.066 9.62899 12.0886 9.88477 11.8613L10.8262 11.0243C11.0817 10.7969 11.1051 10.4051 10.8779 10.1493L8.30762 7.25872H10.7021C10.7054 7.25877 10.7086 7.25969 10.7119 7.25969H15.1406C16.5342 7.25969 17.6641 8.38843 17.6641 9.7802V14.8603C17.6639 16.2519 16.5341 17.3808 15.1406 17.3808H5.04688C3.65352 17.3806 2.52361 16.2518 2.52344 14.8603V12.4316C2.52337 12.0837 2.24094 11.8017 1.89258 11.8017H0.630859C0.282703 11.8019 6.54734e-05 12.0838 0 12.4316V14.8603C0.00016974 17.6436 2.25989 19.9001 5.04688 19.9003H15.1406C17.9278 19.9003 20.1873 17.6437 20.1875 14.8603V9.7802L20.1816 9.52043C20.0462 6.85765 17.8406 4.74016 15.1406 4.74016H12.1875V4.73625H8.30762L10.8779 1.86907C11.1052 1.61317 11.082 1.22053 10.8262 0.99309L9.88477 0.156176Z" fill="#707070"/>
+              </svg>
+            </button>
+            <button type="button" class="undo-redo-btn" id="editRedoBtn" title="Redo" style="opacity: 0.5;">
+              <svg height="20" width="21" fill="none" viewBox="0 0 21 20" xmlns="http://www.w3.org/2000/svg" style="transform: scaleX(-1);">
+                <path d="M9.88477 0.156176C9.62897 -0.070905 9.23722 -0.0475447 9.00977 0.207934L4.21777 5.59661C4.00913 5.83132 4.00949 6.18591 4.21777 6.42082L9.00977 11.8105C9.23732 12.066 9.62899 12.0886 9.88477 11.8613L10.8262 11.0243C11.0817 10.7969 11.1051 10.4051 10.8779 10.1493L8.30762 7.25872H10.7021C10.7054 7.25877 10.7086 7.25969 10.7119 7.25969H15.1406C16.5342 7.25969 17.6641 8.38843 17.6641 9.7802V14.8603C17.6639 16.2519 16.5341 17.3808 15.1406 17.3808H5.04688C3.65352 17.3806 2.52361 16.2518 2.52344 14.8603V12.4316C2.52337 12.0837 2.24094 11.8017 1.89258 11.8017H0.630859C0.282703 11.8019 6.54734e-05 12.0838 0 12.4316V14.8603C0.00016974 17.6436 2.25989 19.9001 5.04688 19.9003H15.1406C17.9278 19.9003 20.1873 17.6437 20.1875 14.8603V9.7802L20.1816 9.52043C20.0462 6.85765 17.8406 4.74016 15.1406 4.74016H12.1875V4.73625H8.30762L10.8779 1.86907C11.1052 1.61317 11.082 1.22053 10.8262 0.99309L9.88477 0.156176Z" fill="#707070"/>
+              </svg>
+            </button>
           </div>
         </div>
         <div class="modal-inner">
@@ -247,8 +259,8 @@
               <div class="autofilled-targeted-launcher-wrapper" id="editLauncherWrapper">
                 <input type="text" class="edit-game-input" id="editInputLauncher" placeholder="Targeted Launcher (e.g. Steam, Dolphin)" spellcheck="false" autocomplete="off" readonly style="cursor: pointer;" />
               </div>
-              <div class="game-file-wrapper" id="editGameFileWrapper">
-                <input type="text" class="edit-game-input" id="editInputGameFile" placeholder="Game File" spellcheck="false" autocomplete="off" />
+              <div class="game-file-wrapper" id="editGameFileWrapper" style="cursor: pointer;">
+                <input type="text" class="edit-game-input" id="editInputGameFile" placeholder="Game File" spellcheck="false" autocomplete="off" readonly style="cursor: pointer;" />
               </div>
               <div class="game-file-wrapper">
                 <input type="text" class="edit-game-input" id="editInputDescription" placeholder="Description" spellcheck="false" autocomplete="off" />
@@ -289,7 +301,19 @@
               </div>
               <div class="manually-add-title">Manually Add Title</div>
             </div>
-            <div class="edit-your-per">Edit your per game details. You can always change this later.</div>
+            <div class="edit-your-per">Manually add your games details here.</div>
+          </div>
+          <div class="undo-redo-parent">
+            <button type="button" class="undo-redo-btn" id="manualUndoBtn" title="Undo" style="opacity: 0.5;">
+              <svg height="20" width="21" fill="none" viewBox="0 0 21 20" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9.88477 0.156176C9.62897 -0.070905 9.23722 -0.0475447 9.00977 0.207934L4.21777 5.59661C4.00913 5.83132 4.00949 6.18591 4.21777 6.42082L9.00977 11.8105C9.23732 12.066 9.62899 12.0886 9.88477 11.8613L10.8262 11.0243C11.0817 10.7969 11.1051 10.4051 10.8779 10.1493L8.30762 7.25872H10.7021C10.7054 7.25877 10.7086 7.25969 10.7119 7.25969H15.1406C16.5342 7.25969 17.6641 8.38843 17.6641 9.7802V14.8603C17.6639 16.2519 16.5341 17.3808 15.1406 17.3808H5.04688C3.65352 17.3806 2.52361 16.2518 2.52344 14.8603V12.4316C2.52337 12.0837 2.24094 11.8017 1.89258 11.8017H0.630859C0.282703 11.8019 6.54734e-05 12.0838 0 12.4316V14.8603C0.00016974 17.6436 2.25989 19.9001 5.04688 19.9003H15.1406C17.9278 19.9003 20.1873 17.6437 20.1875 14.8603V9.7802L20.1816 9.52043C20.0462 6.85765 17.8406 4.74016 15.1406 4.74016H12.1875V4.73625H8.30762L10.8779 1.86907C11.1052 1.61317 11.082 1.22053 10.8262 0.99309L9.88477 0.156176Z" fill="#707070"/>
+              </svg>
+            </button>
+            <button type="button" class="undo-redo-btn" id="manualRedoBtn" title="Redo" style="opacity: 0.5;">
+              <svg height="20" width="21" fill="none" viewBox="0 0 21 20" xmlns="http://www.w3.org/2000/svg" style="transform: scaleX(-1);">
+                <path d="M9.88477 0.156176C9.62897 -0.070905 9.23722 -0.0475447 9.00977 0.207934L4.21777 5.59661C4.00913 5.83132 4.00949 6.18591 4.21777 6.42082L9.00977 11.8105C9.23732 12.066 9.62899 12.0886 9.88477 11.8613L10.8262 11.0243C11.0817 10.7969 11.1051 10.4051 10.8779 10.1493L8.30762 7.25872H10.7021C10.7054 7.25877 10.7086 7.25969 10.7119 7.25969H15.1406C16.5342 7.25969 17.6641 8.38843 17.6641 9.7802V14.8603C17.6639 16.2519 16.5341 17.3808 15.1406 17.3808H5.04688C3.65352 17.3806 2.52361 16.2518 2.52344 14.8603V12.4316C2.52337 12.0837 2.24094 11.8017 1.89258 11.8017H0.630859C0.282703 11.8019 6.54734e-05 12.0838 0 12.4316V14.8603C0.00016974 17.6436 2.25989 19.9001 5.04688 19.9003H15.1406C17.9278 19.9003 20.1873 17.6437 20.1875 14.8603V9.7802L20.1816 9.52043C20.0462 6.85765 17.8406 4.74016 15.1406 4.74016H12.1875V4.73625H8.30762L10.8779 1.86907C11.1052 1.61317 11.082 1.22053 10.8262 0.99309L9.88477 0.156176Z" fill="#707070"/>
+              </svg>
+            </button>
           </div>
         </div>
         <div class="modal-inner">
@@ -320,7 +344,7 @@
             <div class="frame-parent">
               <div class="frame-group">
                 <div class="autofilled-game-title-wrapper">
-                  <input type="text" class="edit-game-input" id="manualInputTitle" placeholder="Autofilled Game Title" spellcheck="false" autocomplete="off" />
+                  <input type="text" class="edit-game-input" id="manualInputTitle" placeholder="Game Title" spellcheck="false" autocomplete="off" />
                 </div>
                 <div class="autofilled-game-title-wrapper">
                   <input type="text" class="edit-game-input" id="manualInputGenre" placeholder="Genre" spellcheck="false" autocomplete="off" />
@@ -328,17 +352,17 @@
               </div>
               <div class="frame-group">
                 <div class="autofilled-game-title-wrapper">
-                  <input type="text" class="edit-game-input" id="manualInputPublisher" placeholder="Autofilled Publisher" spellcheck="false" autocomplete="off" />
+                  <input type="text" class="edit-game-input" id="manualInputPublisher" placeholder="Publisher" spellcheck="false" autocomplete="off" />
                 </div>
                 <div class="autofilled-game-title-wrapper">
-                  <input type="text" class="edit-game-input" id="manualInputYear" placeholder="Autofilled Year Published" spellcheck="false" autocomplete="off" />
+                  <input type="text" class="edit-game-input" id="manualInputYear" placeholder="Year Published" spellcheck="false" autocomplete="off" />
                 </div>
               </div>
               <div class="autofilled-targeted-launcher-wrapper" id="manualLauncherWrapper">
-                <input type="text" class="edit-game-input" id="manualInputLauncher" placeholder="Autofilled targeted launcher (ie: Steam Dolphin)" spellcheck="false" autocomplete="off" readonly style="cursor: pointer;" />
+                <input type="text" class="edit-game-input" id="manualInputLauncher" placeholder="Targeted Launcher (e.g. Steam, Dolphin)" spellcheck="false" autocomplete="off" readonly style="cursor: pointer;" />
               </div>
-              <div class="game-file-wrapper" id="manualGameFileWrapper">
-                <input type="text" class="edit-game-input" id="manualInputGameFile" placeholder="Game File" spellcheck="false" autocomplete="off" />
+              <div class="game-file-wrapper" id="manualGameFileWrapper" style="cursor: pointer;">
+                <input type="text" class="edit-game-input" id="manualInputGameFile" placeholder="Game File" spellcheck="false" autocomplete="off" readonly style="cursor: pointer;" />
               </div>
               <div class="game-file-wrapper">
                 <input type="text" class="edit-game-input" id="manualInputDescription" placeholder="Description" spellcheck="false" autocomplete="off" />
@@ -367,37 +391,38 @@
       </div>
     </div>
 
-    <!-- Game Floating Context Menu -->
-    <div class="context-menu-backdrop" id="gameContextMenuBackdrop"></div>
-    <div class="game-context-menu" id="modalGameContext">
-      <div class="selections-parent">
-        <div class="selections" data-action="edit">
-          <div class="union-icon" style="width: 21px; height: 21px;">
-            <svg width="21" height="21" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M9.46267 0.839844C9.81108 0.839845 10.0935 1.12191 10.0935 1.46985V2.72986C10.0934 3.07772 9.81102 3.35986 9.46267 3.35986H5.04676C3.65313 3.35986 2.52338 4.48812 2.52338 5.87988V15.96C2.52347 17.3517 3.65319 18.48 5.04676 18.48H15.1403C16.5338 18.48 17.6636 17.3517 17.6637 15.96V11.5499C17.6637 11.202 17.9461 10.9199 18.2945 10.9199H19.5562C19.9046 10.9199 20.187 11.202 20.187 11.5499V15.96C20.1869 18.7434 17.9275 21 15.1403 21H5.04676C2.25957 21 9.02939e-05 18.7434 0 15.96V5.87988L0.00574989 5.61984C0.141154 2.95706 2.34677 0.839845 5.04676 0.839844H9.46267Z" fill="#9E9E9E"/>
-              <path fill-rule="evenodd" clip-rule="evenodd" d="M15.1551 0.492029C15.812 -0.163986 16.8769 -0.164033 17.5339 0.492029L20.5074 3.46158C21.1642 4.11766 21.1642 5.18118 20.5074 5.83723L11.3881 14.9452C11.1307 15.2021 10.7962 15.3688 10.436 15.4202L6.96722 15.9148C5.85727 16.0731 4.90591 15.1234 5.06401 14.015L5.55932 10.55C5.61078 10.1902 5.77771 9.85621 6.03492 9.59921L15.1551 0.492029ZM8.01781 11.1832L7.72046 13.2619L9.80192 12.965L18.1286 4.64941L16.3445 2.86767L8.01781 11.1832Z" fill="#9E9E9E"/>
-            </svg>
-          </div>
-          <div class="edit-details">Edit Details</div>
-        </div>
-        <div class="selections" data-action="location">
-          <div class="union-icon" style="width: 20px; height: 17px;">
-            <svg width="20" height="17" viewBox="0 0 20 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path fill-rule="evenodd" clip-rule="evenodd" d="M9.13452 0.0159868C9.65109 0.0810018 10.126 0.337316 10.4663 0.734158L10.7837 1.15473C11.1807 1.61768 11.7609 1.88888 12.3767 1.88889H18.75C19.4404 1.88889 20 2.45268 20 3.14815V12.9701C20 14.3806 20.0003 15.0864 19.7278 15.6251L19.6313 15.7985C19.3912 16.193 19.0468 16.5145 18.6353 16.7258L18.4253 16.8155C17.9139 16.9994 17.2248 17 15.9998 17H4.00024L3.07251 16.9963C2.39555 16.9856 1.93992 16.9468 1.57471 16.8155L1.36475 16.7258C0.953202 16.5145 0.608834 16.193 0.368652 15.7985L0.272217 15.6251C-0.000266768 15.0864 1.32443e-07 14.3806 1.32443e-07 12.9701V3.14815C1.32443e-07 2.56303 -0.000429242 2.26991 0.0476076 2.02662C0.24499 1.02792 1.02036 0.246805 2.01172 0.0479602C2.25322 -0.000432421 2.54418 1.33362e-07 3.125 1.33428e-07H8.87329L9.13452 0.0159868ZM2.52686 2.52344C2.5189 2.52371 2.51156 2.52316 2.50488 2.52344C2.5046 2.53017 2.50516 2.53756 2.50488 2.54557C2.50068 2.66919 2.5 2.83851 2.5 3.14815V12.9701C2.5 13.7169 2.50182 14.1264 2.52563 14.42C2.52651 14.4308 2.52841 14.441 2.5293 14.4507C2.53937 14.4517 2.54981 14.4547 2.56104 14.4557C2.8525 14.4796 3.25893 14.4815 4.00024 14.4815H15.9998C16.7411 14.4815 17.1475 14.4796 17.439 14.4557C17.4497 14.4548 17.4598 14.4516 17.4695 14.4507C17.4704 14.441 17.4735 14.4308 17.4744 14.42C17.4982 14.1264 17.5 13.7169 17.5 12.9701V4.40741H12.3767C11.1828 4.4074 10.0512 3.94045 9.20482 3.12904C8.91828 2.85433 8.77501 2.71697 8.67594 2.65826C8.56787 2.59421 8.51572 2.57325 8.39338 2.54469C8.28124 2.51852 8.1403 2.51852 7.85843 2.51852H3.125C2.81764 2.51852 2.64956 2.51921 2.52686 2.52344Z" fill="#9E9E9E"/>
-            </svg>
-          </div>
-          <div class="edit-details">Show File Location</div>
-        </div>
+  <!-- Game Right-Click Context Menu (Figma 1871-385) -->
+  <div class="context-menu-backdrop" id="gameContextMenuBackdrop"></div>
+  <div class="modal game-context-menu" id="modalGameContext" role="menu" aria-label="Game options">
+    <div class="selections-parent">
+      <div class="selections" data-action="edit" role="menuitem" tabindex="0">
+        <svg class="union-icon" width="21" height="21" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9.46267 0.839845C9.81108 0.839845 10.0935 1.12191 10.0935 1.46985V2.72986C10.0934 3.07772 9.81102 3.35986 9.46267 3.35986H5.04676C3.65313 3.35986 2.52338 4.48812 2.52338 5.87988V15.96C2.52347 17.3517 3.65319 18.48 5.04676 18.48H15.1403C16.5338 18.48 17.6636 17.3517 17.6637 15.96V11.5499C17.6637 11.202 17.9461 10.9199 18.2945 10.9199H19.5562C19.9046 10.9199 20.187 11.202 20.187 11.5499V15.96C20.1869 18.7434 17.9275 21 15.1403 21H5.04676C2.25957 21 9.02939e-05 18.7434 0 15.96V5.87988L0.00574989 5.61984C0.141154 2.95706 2.34677 0.839845 5.04676 0.839845H9.46267Z" fill="#9E9E9E"/>
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M15.1551 0.492029C15.812 -0.163986 16.8769 -0.164033 17.5339 0.492029L20.5074 3.46158C21.1642 4.11766 21.1642 5.18118 20.5074 5.83723L11.3881 14.9452C11.1307 15.2021 10.7962 15.3688 10.436 15.4202L6.96722 15.9148C5.85727 16.0731 4.90591 15.1234 5.06401 14.015L5.55932 10.55C5.61078 10.1902 5.77771 9.8562 6.03492 9.59921L15.1551 0.492029ZM8.01781 11.1832L7.72046 13.2619L9.80192 12.965L18.1286 4.64941L16.3445 2.86767L8.01781 11.1832Z" fill="#9E9E9E"/>
+        </svg>
+        <div class="edit-details">Edit Details</div>
       </div>
-      <div class="selections" data-action="remove">
-        <div class="union-icon" style="width: 20px; height: 20px;">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18.9393 1.18138C19.5251 1.76717 19.5251 2.71692 18.9393 3.3027L12.242 10L18.9393 16.6973C19.5251 17.2831 19.5251 18.2328 18.9393 18.8186L18.8186 18.9393C18.2328 19.5251 17.2831 19.5251 16.6973 18.9393L10 12.242L3.3027 18.9393C2.71692 19.5251 1.76717 19.5251 1.18138 18.9393L1.06066 18.8186C0.474874 18.2328 0.474874 17.2831 1.06066 16.6973L7.75796 10L1.06066 3.3027C0.474874 2.71692 0.474874 1.76717 1.06066 1.18138L1.18138 1.06066C1.76717 0.474874 2.71691 0.474874 3.3027 1.06066L10 7.75796L16.6973 1.06066C17.2831 0.474874 18.2328 0.474874 18.8186 1.06066L18.9393 1.18138Z" fill="#9E9E9E"/>
-          </svg>
-        </div>
-        <div class="edit-details">Remove from Restak</div>
+      <div class="selections2" data-action="location" role="menuitem" tabindex="0">
+        <svg class="union-icon2" width="20" height="17" viewBox="12 15.5 20 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M21.1345 15.516C21.6511 15.581 22.126 15.8373 22.4663 16.2342L22.7837 16.6547C23.1807 17.1177 23.7609 17.3889 24.3767 17.3889H30.75C31.4404 17.3889 32 17.9527 32 18.6481V28.4701C32 29.8806 32.0003 30.5864 31.7278 31.1251L31.6313 31.2985C31.3912 31.693 31.0468 32.0145 30.6353 32.2258L30.4253 32.3155C29.9139 32.4994 29.2248 32.5 27.9998 32.5H16.0002L15.0725 32.4963C14.3955 32.4856 13.9399 32.4468 13.5747 32.3155L13.3647 32.2258C12.9532 32.0145 12.6088 31.693 12.3687 31.2985L12.2722 31.1251C11.9997 30.5864 12 29.8806 12 28.4701V18.6481C12 18.063 11.9996 17.7699 12.0476 17.5266C12.245 16.5279 13.0204 15.7468 14.0117 15.548C14.2532 15.4996 14.5442 15.5 15.125 15.5H20.8733L21.1345 15.516ZM14.5269 18.0234C14.5189 18.0237 14.5116 18.0232 14.5049 18.0234C14.5046 18.0302 14.5052 18.0376 14.5049 18.0456C14.5007 18.1692 14.5 18.3385 14.5 18.6481V28.4701C14.5 29.2169 14.5018 29.6264 14.5256 29.92C14.5265 29.9308 14.5284 29.941 14.5293 29.9507C14.5394 29.9517 14.5498 29.9547 14.561 29.9557C14.8525 29.9796 15.2589 29.9815 16.0002 29.9815H27.9998C28.7411 29.9815 29.1475 29.9796 29.439 29.9557C29.4497 29.9548 29.4598 29.9516 29.4695 29.9507C29.4704 29.941 29.4735 29.9308 29.4744 29.92C29.4982 29.6264 29.5 29.2169 29.5 28.4701V19.9074H24.3767C23.1828 19.9074 22.0512 19.4404 21.2048 18.629C20.9183 18.3543 20.775 18.217 20.6759 18.1583C20.5679 18.0942 20.5157 18.0732 20.3934 18.0447C20.2812 18.0185 20.1403 18.0185 19.8584 18.0185H15.125C14.8176 18.0185 14.6496 18.0192 14.5269 18.0234Z" fill="#9E9E9E" fill-rule="evenodd"/>
+        </svg>
+        <div class="edit-details">Show File Location</div>
+      </div>
+      <div class="selections2" data-action="move-stak" role="menuitem" tabindex="0">
+        <svg class="staks-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M16 11.25C17.4 11.25 18.101 11.25 18.6357 11.5225C19.1058 11.7621 19.488 12.1451 19.7275 12.6152C19.9999 13.1499 20 13.8503 20 15.25V16C20 17.4 20 18.101 19.7275 18.6357L19.6318 18.8076C19.3917 19.199 19.0471 19.5178 18.6357 19.7275L18.4258 19.8174C17.9144 19.9999 17.2249 20 16 20H4L3.07227 19.9961C2.3958 19.9854 1.94026 19.9475 1.5752 19.8174L1.36523 19.7275C0.953829 19.5179 0.609311 19.199 0.369141 18.8076L0.272461 18.6357C-6.94394e-06 18.101 -3.00817e-08 17.4 0 16V15.25C-3.00763e-08 13.8503 0.000140369 13.1499 0.272461 12.6152C0.512129 12.1449 0.894918 11.7621 1.36523 11.5225C1.76618 11.3183 2.26014 11.2667 3.07227 11.2539L4 11.25H16ZM4 13.75C3.25926 13.75 2.85292 13.7516 2.56152 13.7754C2.55034 13.7763 2.53933 13.7784 2.5293 13.7793C2.52837 13.7893 2.52631 13.8003 2.52539 13.8115C2.50162 14.1029 2.5 14.5093 2.5 15.25V16C2.5 16.7412 2.50158 17.148 2.52539 17.4395C2.52629 17.45 2.52842 17.4602 2.5293 17.4697C2.53936 17.4707 2.55031 17.4737 2.56152 17.4746C2.85292 17.4984 3.25926 17.5 4 17.5H16C16.7412 17.5 17.148 17.4984 17.4395 17.4746C17.4501 17.4737 17.4602 17.4706 17.4697 17.4697C17.4706 17.4602 17.4737 17.4501 17.4746 17.4395C17.4984 17.148 17.5 16.7412 17.5 16V15.25C17.5 14.5093 17.4984 14.1029 17.4746 13.8115C17.4737 13.8003 17.4707 13.7894 17.4697 13.7793C17.4602 13.7784 17.45 13.7763 17.4395 13.7754C17.148 13.7516 16.7412 13.75 16 13.75H4Z" fill="#9E9E9E"/>
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M16 0C17.4 -3.00817e-08 18.101 -6.94394e-06 18.6357 0.272461C19.1058 0.512145 19.488 0.89508 19.7275 1.36523C19.9999 1.89995 20 2.60028 20 4V4.75C20 6.14997 20 6.85099 19.7275 7.38574L19.6318 7.55762C19.3917 7.94903 19.0471 8.26782 18.6357 8.47754L18.4258 8.56738C17.9144 8.74987 17.2249 8.75 16 8.75H4L3.07227 8.74609C2.3958 8.73545 1.94026 8.69753 1.5752 8.56738L1.36523 8.47754C0.953829 8.26789 0.609311 7.949 0.369141 7.55762L0.272461 7.38574C-6.94394e-06 6.85099 -3.00817e-08 6.14997 0 4.75V4C-3.00763e-08 2.60028 0.000140369 1.89995 0.272461 1.36523C0.512129 0.894918 0.894918 0.512129 1.36523 0.272461C1.76618 0.0682656 2.26014 0.01669 3.07227 0.00390625L4 0H16ZM4 2.5C3.25926 2.5 2.85292 2.50162 2.56152 2.52539C2.55034 2.52631 2.53933 2.52837 2.5293 2.5293C2.52837 2.53933 2.52631 2.55034 2.52539 2.56152C2.50162 2.85292 2.5 3.25926 2.5 4V4.75C2.5 5.49116 2.50158 5.89802 2.52539 6.18945C2.52629 6.20001 2.52842 6.21019 2.5293 6.21973C2.53936 6.22066 2.55031 6.22369 2.56152 6.22461C2.85292 6.24838 3.25926 6.25 4 6.25H16C16.7412 6.25 17.148 6.24842 17.4395 6.22461C17.4501 6.22368 17.4602 6.2206 17.4697 6.21973C17.4706 6.21016 17.4737 6.20005 17.4746 6.18945C17.4984 5.89802 17.5 5.49116 17.5 4.75V4C17.5 3.25926 17.4984 2.85292 17.4746 2.56152C17.4737 2.55031 17.4707 2.53936 17.4697 2.5293C17.4602 2.52842 17.45 2.52629 17.4395 2.52539C17.148 2.50158 16.7412 2.5 16 2.5H4Z" fill="#9E9E9E"/>
+        </svg>
+        <div class="edit-details">Move Stak Location</div>
       </div>
     </div>
+    <div class="selections4" data-action="remove" role="menuitem" tabindex="0">
+      <svg class="close-icon" width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M17.1058 1.33681C17.3792 1.61015 17.3791 2.05366 17.1058 2.32704L10.7778 8.65647L17.1058 14.9845C17.3791 15.2578 17.3791 15.7014 17.1058 15.9747L15.9747 17.1058C15.7015 17.3792 15.2586 17.3797 14.9852 17.1065L8.65645 10.7778L2.32633 17.1065C2.05296 17.3799 1.60946 17.3799 1.3361 17.1065L0.205008 15.9754C-0.0682391 15.7021 -0.0683193 15.2585 0.205008 14.9852L6.53444 8.65578L0.205008 2.32635C-0.0683261 2.05297 -0.0683456 1.60947 0.205008 1.33612L1.3361 0.205025C1.60947 -0.0683418 2.05296 -0.0683417 2.32633 0.205025L8.65645 6.53515L14.9845 0.205716C15.2578 -0.0675281 15.7014 -0.0674751 15.9747 0.205716L17.1058 1.33681Z" fill="#9E9E9E"/>
+      </svg>
+      <div class="edit-details">Remove from Restak</div>
+    </div>
+  </div>
 
   <script src="renderer.js"></script>
 </body>
