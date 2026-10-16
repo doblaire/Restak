@@ -1969,15 +1969,27 @@ button[data-color="707070"]:not(:disabled):not(.disabled):hover {
   background: #919191;
   cursor: pointer;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-  transition: transform 0.32278s var(--spring-easing), filter 0.32278s, box-shadow 0.32278s;
+  transition: transform 0.32278s var(--spring-easing), filter 0.32278s, box-shadow 0.32278s, opacity 250ms ease;
   user-select: none;
 }
 
 /* Shelf Card Hover Effect: 8% scale grow (matching buttons), no glow */
-.shelf-card:hover {
+.shelf-card:not(.is-dimmed):hover {
   transform: scale(1.08);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.25);
   z-index: 10;
+}
+
+/* Non-matching dimmed cards during live search: 24% opacity & disabled pointer interactions */
+.shelf-card.is-dimmed {
+  opacity: 0.24 !important;
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
+.shelf-card.is-dimmed:hover {
+  transform: none !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
 }
 
 .shelf-card-art {

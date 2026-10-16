@@ -115,6 +115,12 @@ function closeSearch() {
     animateTrayPath(false);
     searchInput.blur();
 
+    // Reset search query and restore shelf order & opacity when search closes
+    if (searchInput.value) {
+      searchInput.value = '';
+      applyGameSearch('');
+    }
+
     const clearClosing = () => {
       searchBtn.classList.remove('search-closing');
       searchBtn.removeEventListener('mouseleave', clearClosing);
@@ -123,7 +129,10 @@ function closeSearch() {
 
     setTimeout(() => {
       if (!navBar.classList.contains('search-expanded')) {
-        searchInput.value = '';
+        if (searchInput.value) {
+          searchInput.value = '';
+          applyGameSearch('');
+        }
       }
       if (!searchBtn.matches(':hover')) {
         clearClosing();
@@ -168,6 +177,13 @@ document.addEventListener('mousedown', (e) => {
     }
   }
 });
+
+// Live search-as-you-type input handler
+if (searchInput) {
+  searchInput.addEventListener('input', () => {
+    applyGameSearch(searchInput.value);
+  });
+}
 
 // --- Nav Bar Bottom Edge Grab & Slide Interactions ---
 const edgeGrab = document.getElementById('navEdgeGrab');
@@ -2115,7 +2131,198 @@ function renderGameShelf() {
 
     gameShelf.appendChild(card);
   });
+
+  // Re-apply active search filter if input currently has a query
+  if (searchInput && searchInput.value) {
+    applyGameSearch(searchInput.value, false);
+  }
 }
+
+/**
+ * Live search filter and sort algorithm.
+ * 
+ * - Matching is case-insensitive and based on the start of each game title (prefix match).
+ * - Leading whitespace is trimmed, but internal and trailing spaces are preserved
+ *   (e.g., "S" matches "Sonic", "Super Mario " matches "Super Mario World" but not "Superman").
+ * - Matching games move to the front of the shelf, sorted alphabetically from A to Z.
+ * - Non-matching games remain in the list in their original order, placed after matches.
+ * - Designed as a standalone, reusable function separate from the UI for future extensions (fuzzy/contains).
+ * 
+ * @param {Array<Object>} games - Original array of game objects.
+ * @param {string} query - Current search query.
+ * @returns {{ orderedGames: Array<Object>, matchSet: Set<Object>, isSearching: boolean }}
+ */
+function filterAndSortGames(games, query) {
+  if (!Array.isArray(games)) {
+    return { orderedGames: [], matchSet: new Set(), isSearching: false };
+  }
+
+  // Trim leading whitespace only; preserve internal and trailing spaces
+  const trimmed = (query != null ? String(query) : '').replace(/^\s+/, '');
+
+  if (!trimmed) {
+    return {
+      orderedGames: [...games],
+      matchSet: new Set(games),
+      isSearching: false
+    };
+  }
+
+  const lowerQuery = trimmed.toLowerCase();
+  const matches = [];
+  const nonMatches = [];
+
+  for (const game of games) {
+    const rawName = game && game.name != null ? String(game.name) : '';
+    const title = rawName.trim().toLowerCase();
+
+    if (title.startsWith(lowerQuery)) {
+      matches.push(game);
+    } else {
+      nonMatches.push(game);
+    }
+  }
+
+  // Extension point: In the future, fallback to 'contains' or fuzzy matching
+  // when prefix matches return empty, e.g.:
+  // if (matches.length === 0) { ... fallback matching logic ... }
+
+  // Sort matching games alphabetically from A to Z
+  matches.sort((a, b) => {
+    const nameA = a && a.name != null ? String(a.name).trim() : '';
+    const nameB = b && b.name != null ? String(b.name).trim() : '';
+    return nameA.localeCompare(nameB, undefined, { sensitivity: 'base', numeric: true });
+  });
+
+  return {
+    orderedGames: [...matches, ...nonMatches],
+    matchSet: new Set(matches),
+    isSearching: true
+  };
+}
+
+let searchFlipCleanupTimer = null;
+
+/**
+ * Updates the game shelf in response to live search queries using FLIP layout animations.
+ * 
+ * - Matching cards move to the front and stay at 100% opacity.
+ * - Non-matching cards move after matches, dim to 24% opacity with a smooth 250ms ease curve,
+ *   and have pointer interactions disabled.
+ * - Card reordering is animated with a FLIP (First-Last-Invert-Play) transition so cards glide smoothly.
+ * - When query is cleared, restores default order and 100% opacity to all cards.
+ * 
+ * @param {string} query - The search query.
+ * @param {boolean} [animate=true] - Whether to perform the FLIP animation.
+ */
+function applyGameSearch(query, animate = true) {
+  if (!gameShelf) return;
+
+  // If user is in Staks view, switch back to All Games view so results are visible
+  if (gameShelf.classList.contains('hidden')) {
+    switchMainView('home');
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('selected'));
+    const homeBtn = document.querySelector('.nav-btn[data-action="home"]');
+    if (homeBtn) {
+      homeBtn.classList.add('selected');
+      activeLocationBtn = homeBtn;
+    }
+  }
+
+  const cards = Array.from(gameShelf.children);
+  if (cards.length === 0) return;
+
+  const { orderedGames, matchSet, isSearching } = filterAndSortGames(gameLibrary, query);
+
+  // Map each game object to its DOM card element
+  const cardMap = new Map();
+  cards.forEach(card => {
+    if (card.__game) {
+      cardMap.set(card.__game, card);
+    }
+  });
+
+  if (!animate) {
+    orderedGames.forEach(game => {
+      const card = cardMap.get(game);
+      if (card) {
+        card.style.transform = '';
+        card.style.transition = '';
+        card.classList.toggle('is-dimmed', isSearching && !matchSet.has(game));
+        gameShelf.appendChild(card);
+      }
+    });
+    return;
+  }
+
+  // 1. FIRST: Record current visual bounding rectangle of all cards
+  const firstRects = new Map();
+  cards.forEach(card => {
+    firstRects.set(card, card.getBoundingClientRect());
+  });
+
+  // 2. REORDER: Reorder cards in DOM and toggle is-dimmed class
+  orderedGames.forEach(game => {
+    const card = cardMap.get(game);
+    if (card) {
+      card.classList.toggle('is-dimmed', isSearching && !matchSet.has(game));
+      gameShelf.appendChild(card);
+    }
+  });
+
+  // 3. LAST: Remove temporary transforms to measure true grid positions
+  cards.forEach(card => {
+    card.style.transition = 'none';
+    card.style.transform = 'none';
+  });
+
+  const moves = [];
+  cards.forEach(card => {
+    const firstRect = firstRects.get(card);
+    if (!firstRect) return;
+
+    const lastRect = card.getBoundingClientRect();
+    const dx = firstRect.left - lastRect.left;
+    const dy = firstRect.top - lastRect.top;
+
+    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+      moves.push({ card, dx, dy });
+    } else {
+      // Restore default transition for stationary cards so opacity transitions smoothly
+      card.style.transition = '';
+      card.style.transform = '';
+    }
+  });
+
+  // 4. INVERT: Set inverse transform so cards visually stay at their 'First' position
+  moves.forEach(({ card, dx, dy }) => {
+    card.style.transform = `translate(${dx}px, ${dy}px)`;
+  });
+
+  // Force reflow
+  void gameShelf.offsetHeight;
+
+  // 5. PLAY: Animate moving cards smoothly to target position
+  requestAnimationFrame(() => {
+    moves.forEach(({ card }) => {
+      card.style.transition = 'transform 0.32278s var(--spring-easing), opacity 250ms ease';
+      card.style.transform = '';
+    });
+  });
+
+  // Clean up inline styles once FLIP transition finishes
+  clearTimeout(searchFlipCleanupTimer);
+  searchFlipCleanupTimer = setTimeout(() => {
+    cards.forEach(card => {
+      card.style.transition = '';
+      card.style.transform = '';
+    });
+  }, 350);
+}
+
+// Expose filter & search functions globally for modular reuse / testing
+window.filterAndSortGames = filterAndSortGames;
+window.applyGameSearch = applyGameSearch;
 
 function createStakElement(title, titlesCount, hoursCount, gamesList) {
   const card = document.createElement('div');
