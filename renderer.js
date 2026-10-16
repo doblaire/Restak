@@ -2284,18 +2284,18 @@ function filterAndSortGames(games, query) {
   };
 }
 
-let searchFlipCleanupTimer = null;
-
 /**
  * Updates the game shelf in response to live search queries using fluid, Apple-like FLIP animations.
  * 
  * - Decelerating curve: cubic-bezier(0.22, 1, 0.36, 1) for a soft start and long, graceful settle.
  * - Reorder slide animation: 550ms.
  * - Opacity fade for dimmed / restored cards: 450ms.
- * - Subtle organic stagger: ~14ms per card, capped at 200ms total.
+ * - Stagger delay ordered by TARGET spot (0ms for the front card, +12ms per subsequent card, capped at 180ms).
+ * - The front-moving card gets elevated z-index so it glides smoothly on top of other cards without visual clipping.
+ * - Powered by the native Web Animations API (Element.animate) directly on the GPU compositor,
+ *   completely eliminating WebKit layout reflow glitches and style transition conflicts.
  * - Fully interruptible: if the user types mid-transition, cards smoothly redirect from their
  *   current visual coordinates without snapping or restarting.
- * - Hardware accelerated: animates strictly transform and opacity on GPU layers.
  * - Accessibility: respects prefers-reduced-motion by disabling slide animations and using a simple opacity fade.
  * 
  * @param {string} query - The search query.
@@ -2325,6 +2325,11 @@ function applyGameSearch(query, animate = true) {
 
   const { orderedGames, matchSet, isSearching } = filterAndSortGames(gameLibrary, query);
 
+  // If searching and user has scrolled down, smoothly scroll to top so the front spot is visible
+  if (isSearching && gameShelf.scrollTop > 0) {
+    gameShelf.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   // Map each game object to its DOM card element
   const cardMap = new Map();
   cards.forEach(card => {
@@ -2335,13 +2340,15 @@ function applyGameSearch(query, animate = true) {
 
   // If reduced motion is requested or animation disabled, reorder instantly without sliding
   if (!animate || prefersReducedMotion) {
-    clearTimeout(searchFlipCleanupTimer);
     orderedGames.forEach(game => {
       const card = cardMap.get(game);
       if (card) {
+        if (card._flipAnim) {
+          card._flipAnim.cancel();
+          card._flipAnim = null;
+        }
         card.style.transform = '';
-        card.style.transition = '';
-        card.style.transitionDelay = '';
+        card.style.zIndex = '';
         card.classList.toggle('is-dimmed', isSearching && !matchSet.has(game));
         gameShelf.appendChild(card);
       }
@@ -2349,17 +2356,19 @@ function applyGameSearch(query, animate = true) {
     return;
   }
 
-  // Cancel any pending cleanup from previous strokes so inline styles aren't prematurely removed
-  clearTimeout(searchFlipCleanupTimer);
-
-  // 1. FIRST: Measure live visual coordinates of all cards (including in-flight transforms!)
+  // 1. FIRST: Record live visual bounding rectangle of all cards (including in-flight transforms!)
   const firstRects = new Map();
   cards.forEach(card => {
     firstRects.set(card, card.getBoundingClientRect());
+    // Cancel any active animation so lastRect measures the true target grid geometry
+    if (card._flipAnim) {
+      card._flipAnim.cancel();
+      card._flipAnim = null;
+    }
   });
 
-  // 2. REORDER: Reorder cards in DOM and toggle is-dimmed class
-  orderedGames.forEach(game => {
+  // 2. REORDER: Reorder cards in DOM according to orderedGames and toggle is-dimmed class
+  orderedGames.forEach((game) => {
     const card = cardMap.get(game);
     if (card) {
       card.classList.toggle('is-dimmed', isSearching && !matchSet.has(game));
@@ -2367,58 +2376,50 @@ function applyGameSearch(query, animate = true) {
     }
   });
 
-  // 3. LAST: Momentarily clear transition and transform to measure true grid target positions
-  cards.forEach(card => {
-    card.style.transition = 'none';
-    card.style.transitionDelay = '0s';
-    card.style.transform = 'none';
-  });
+  // 3. LAST & PLAY: Measure new positions and run smooth GPU animation
+  orderedGames.forEach((game, newIndex) => {
+    const card = cardMap.get(game);
+    if (!card) return;
 
-  const moves = [];
-  cards.forEach(card => {
     const firstRect = firstRects.get(card);
     if (!firstRect) return;
 
     const lastRect = card.getBoundingClientRect();
-    const dx = firstRect.left - lastRect.left;
-    const dy = firstRect.top - lastRect.top;
+    const dx = Math.round(firstRect.left - lastRect.left);
+    const dy = Math.round(firstRect.top - lastRect.top);
 
     if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-      moves.push({ card, dx, dy });
+      // Stagger delay based on TARGET position:
+      // Target slot 0 (front spot) starts immediately (0ms delay)!
+      // Remaining cards stagger gently by 12ms, capped at 180ms total.
+      const delayMs = Math.min(newIndex * 12, 180);
+      const isMatching = matchSet.has(game);
+
+      // Elevate z-index during animation so moving cards (especially matching cards heading to front)
+      // glide cleanly on top of other cards without visual clipping or flickering underneath.
+      card.style.zIndex = isMatching ? '10' : '2';
+
+      card._flipAnim = card.animate([
+        { transform: `translate3d(${dx}px, ${dy}px, 0)` },
+        { transform: 'translate3d(0px, 0px, 0)' }
+      ], {
+        duration: 550,
+        delay: delayMs,
+        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        fill: 'both'
+      });
+
+      card._flipAnim.onfinish = () => {
+        card.style.zIndex = '';
+        if (card._flipAnim) {
+          card._flipAnim.cancel();
+          card._flipAnim = null;
+        }
+      };
     } else {
-      // Card didn't move: restore CSS transition so opacity fades smoothly without delay
-      card.style.transition = '';
-      card.style.transitionDelay = '';
-      card.style.transform = '';
+      card.style.zIndex = '';
     }
   });
-
-  // 4. INVERT: Place moving cards back at their exact visual 'First' position
-  moves.forEach(({ card, dx, dy }) => {
-    card.style.transform = `translate(${dx}px, ${dy}px)`;
-  });
-
-  // Force reflow to flush inverted transform before playing
-  void gameShelf.offsetHeight;
-
-  // 5. PLAY: Animate smoothly along decelerating curve with capped stagger delay
-  requestAnimationFrame(() => {
-    moves.forEach(({ card }, index) => {
-      // 14ms per card stagger, capped at 200ms total for organic, fluid shift
-      const delayMs = Math.min(index * 14, 200);
-      card.style.transition = `transform 550ms cubic-bezier(0.22, 1, 0.36, 1) ${delayMs}ms, opacity 450ms cubic-bezier(0.22, 1, 0.36, 1)`;
-      card.style.transform = '';
-    });
-  });
-
-  // 6. CLEANUP: Once all staggered transitions have settled (550ms slide + max 200ms stagger + 50ms buffer = 800ms)
-  searchFlipCleanupTimer = setTimeout(() => {
-    cards.forEach(card => {
-      card.style.transition = '';
-      card.style.transform = '';
-      card.style.transitionDelay = '';
-    });
-  }, 800);
 }
 
 // Expose filter & search functions globally for modular reuse / testing
